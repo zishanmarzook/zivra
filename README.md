@@ -1,20 +1,24 @@
 # ZIVRA — Roblox Shooter
 
-Multiplayer arena shooter prototype in Roblox Luau. Features a lobby, 1v1 and 2v2 queues, friend parties, and a zombie survival mode.
+We're building this **step by step**, starting with just a small house-style spawn lobby. No weapon or game-mode logic has been added.
 
-## Quick start (no plugins)
+## Stage 1: Create the room in Roblox Studio
 
-1. Open a new **Baseplate** in Roblox Studio.
-2. In **Explorer > ServerScriptService**, insert a **Script** named `Main`, then paste the contents of [`src/server/Main.server.luau`](src/server/Main.server.luau).
-3. In **StarterPlayer > StarterPlayerScripts**, insert a **LocalScript** named `Main`, then paste the contents of [`src/client/Main.client.luau`](src/client/Main.client.luau).
-4. Press **Play** to try Zombie Survival alone. Use **Test > Server & Clients** to launch two or more clients for 1v1 and 2v2. A four-player test is needed for 2v2.
+1. Launch **Roblox Studio** and create a **Baseplate** experience.
+2. In Studio, enable **Explorer** and **Command Bar** (look under **View** or **Window**, depending on your Studio layout).
+3. Open [studio/CreateRoom.lua](studio/CreateRoom.lua) on GitHub, click **Raw**, then copy all the Lua code.
+4. **While NOT in Play mode**, paste it into Studio's **Command Bar** and press **Enter**. This generates a permanent, editable model in `Workspace > ZIVRA_Lobby`.
+5. Look inside `ZIVRA_Lobby` to see the floor, walls, open doorway, roof, benches, table, and spawn pad.
+6. Disable/delete the default Baseplate SpawnLocation if it competes with `ZIVRA_Spawn` (don't remove the new one).
+7. **Save** your Roblox place and click **Play** to test spawning. If your view is blocked by the roof in edit mode, temporarily hide `Roof` using Properties > Transparency or move the camera inside.
 
-The code creates temporary blockout arenas and a basic menu at runtime. Replace the temporary visuals later. Server must be running for the LocalScript to work.
+### Important
 
-## Optional sync
+- You run the script once **in Command Bar**, not in ServerScriptService. Generated parts remain editable in Studio.
+- Rerunning it will not overwrite an existing `ZIVRA_Lobby`; rename or remove the old model only if you really want a new one.
+- GitHub stores the code, but does **not** automatically deploy it to your Roblox game.
+- This is a blockout only. The fancy room graphics, UI, friend parties, 1v1, 2v2 and zombie apocalypse come in later stages.
 
-The `default.project.json` file supports [Rojo](https://rojo.space/) synchronization as an optional alternative to copying scripts.
+## Next
 
-## Status
-
-This is a first playable prototype, not a production-ready published experience. You must test multiplayer networking, spawn handling, and the gameplay feel in Roblox Studio before publishing.
+Walk through the Studio setup with Codex or ChatGPT and confirm the room spawns correctly before adding gameplay.
