@@ -32,7 +32,7 @@ function Projectiles.step(dt)
 	-- Substeps bound collision error at low server frame rates. Every segment uses a raycast.
 	local steps=math.max(1,math.ceil(math.min(dt,0.25)/0.025)); local step=math.min(dt,0.25)/steps
 	for i=#C.Shots,1,-1 do
-		local p=C.Shots[i]; local s=C.States[p.owner]; local remove=not s or s.mode~=p.mode or not C.alive(p.owner)
+		local p=C.Shots[i]; local s=C.States[p.owner]; local remove=p.cancelled or not s or s.mode~=p.mode or not C.alive(p.owner)
 		for _=1,steps do
 			if remove then break end
 			local d=p.def; p.age+=step

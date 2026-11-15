@@ -297,10 +297,12 @@ function Combat.reset(player)
 	Combat.snapshot(player)
 end
 function Combat.cleanup(player)
-	for i=#Combat.Shots,1,-1 do if Combat.Shots[i].owner==player then table.remove(Combat.Shots,i) end end
+	-- Mark cancellation instead of shrinking arrays during an impact callback.
+	-- A lethal hit may end a round inside Projectiles.step/Utility.step.
+	for _,shot in ipairs(Combat.Shots) do if shot.owner==player then shot.cancelled=true end end
 	for i=#Combat.Deployments,1,-1 do
 		local x=Combat.Deployments[i]
-		if x.owner==player then if x.part then x.part:Destroy() end; table.remove(Combat.Deployments,i) end
+		if x.owner==player then x.cancelled=true; if x.part then x.part:Destroy() end end
 	end
 	local s=Combat.States[player]
 	if s then s.grapple=nil; s.marker=nil end
@@ -736,7 +738,7 @@ function Projectiles.step(dt)
 	-- Substeps bound collision error at low server frame rates. Every segment uses a raycast.
 	local steps=math.max(1,math.ceil(math.min(dt,0.25)/0.025)); local step=math.min(dt,0.25)/steps
 	for i=#C.Shots,1,-1 do
-		local p=C.Shots[i]; local s=C.States[p.owner]; local remove=not s or s.mode~=p.mode or not C.alive(p.owner)
+		local p=C.Shots[i]; local s=C.States[p.owner]; local remove=p.cancelled or not s or s.mode~=p.mode or not C.alive(p.owner)
 		for _=1,steps do
 			if remove then break end
 			local d=p.def; p.age+=step
@@ -826,7 +828,7 @@ end
 function Utility.detonate(player)
 	for i=#C.Deployments,1,-1 do
 		local x=C.Deployments[i]
-		if x.owner==player and x.def.kind=="satchel" and now()>=x.armed then
+		if not x.cancelled and x.owner==player and x.def.kind=="satchel" and now()>=x.armed then
 			C.explode(player,x.position+Vector3.new(0,0.6,0),x.def); x.part:Destroy(); table.remove(C.Deployments,i)
 		end
 	end
@@ -882,7 +884,7 @@ end
 function Utility.step()
 	local time=now()
 	for i=#C.Deployments,1,-1 do
-		local x=C.Deployments[i]; local s=C.States[x.owner]; local remove=not s or s.mode~=x.mode or time>=x.expires or not C.alive(x.owner)
+		local x=C.Deployments[i]; local s=C.States[x.owner]; local remove=x.cancelled or not s or s.mode~=x.mode or time>=x.expires or not C.alive(x.owner)
 		if not remove and time>=x.armed and time>=x.nextTick then
 			x.nextTick=time+0.25
 			if x.def.kind=="mine" then

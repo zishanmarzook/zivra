@@ -51,10 +51,12 @@ function Combat.reset(player)
 	Combat.snapshot(player)
 end
 function Combat.cleanup(player)
-	for i=#Combat.Shots,1,-1 do if Combat.Shots[i].owner==player then table.remove(Combat.Shots,i) end end
+	-- Mark cancellation instead of shrinking arrays during an impact callback.
+	-- A lethal hit may end a round inside Projectiles.step/Utility.step.
+	for _,shot in ipairs(Combat.Shots) do if shot.owner==player then shot.cancelled=true end end
 	for i=#Combat.Deployments,1,-1 do
 		local x=Combat.Deployments[i]
-		if x.owner==player then if x.part then x.part:Destroy() end; table.remove(Combat.Deployments,i) end
+		if x.owner==player then x.cancelled=true; if x.part then x.part:Destroy() end end
 	end
 	local s=Combat.States[player]
 	if s then s.grapple=nil; s.marker=nil end

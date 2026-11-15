@@ -50,7 +50,7 @@ end
 function Utility.detonate(player)
 	for i=#C.Deployments,1,-1 do
 		local x=C.Deployments[i]
-		if x.owner==player and x.def.kind=="satchel" and now()>=x.armed then
+		if not x.cancelled and x.owner==player and x.def.kind=="satchel" and now()>=x.armed then
 			C.explode(player,x.position+Vector3.new(0,0.6,0),x.def); x.part:Destroy(); table.remove(C.Deployments,i)
 		end
 	end
@@ -106,7 +106,7 @@ end
 function Utility.step()
 	local time=now()
 	for i=#C.Deployments,1,-1 do
-		local x=C.Deployments[i]; local s=C.States[x.owner]; local remove=not s or s.mode~=x.mode or time>=x.expires or not C.alive(x.owner)
+		local x=C.Deployments[i]; local s=C.States[x.owner]; local remove=x.cancelled or not s or s.mode~=x.mode or time>=x.expires or not C.alive(x.owner)
 		if not remove and time>=x.armed and time>=x.nextTick then
 			x.nextTick=time+0.25
 			if x.def.kind=="mine" then

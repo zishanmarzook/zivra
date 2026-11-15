@@ -50,11 +50,11 @@ Automated checks performed in this cloud environment:
 
 - All 15 production Luau files compile with official Luau 0.747.
 - Registry/policy suite: 310 assertions covering item/category counts, stable IDs, data contracts, ownership/trial separation, numerical validation, attack-state denial, splash/falloff, rate-limit exhaustion/refill, and daily reset isolation.
-- Combat lifecycle suite: 29 assertions using the actual Combat/Utility source with mocked engine services. Covers ammo conservation, cadence, blocked lobby/menu/dead attacks, reload/switch/death cancellation, trial isolation, overheat-switch resistance, spinup, server-measured bow charge, invalid aim, and medkit cooldown/cap/interruption.
+- Combat lifecycle suite: 32 assertions using the actual Combat/Utility source with mocked engine services. Covers ammo conservation, cadence, blocked lobby/menu/dead attacks, reload/switch/death cancellation, trial isolation, overheat-switch resistance, spinup, server-measured bow charge, invalid aim, and medkit cooldown/cap/interruption.
 - Persistence suite: 16 assertions with a mock DataStore. Covers session locking, safe reconnect, retries/failures, no default overwrite, offline no-save, stale-writer refusal, future-version rejection, migration, and unrecognized-record preservation.
 - Rojo builds the mapped tree successfully. Installer is generated from current source and compiles.
 
-Issues found and corrected include range-target reset handling, synchronous Humanoid death versus duel reward ordering, marker use in Warper teleport, preserved heat across switches, per-frame movement-envelope slack, overlapping simultaneous matches in one arena, and invalid old-save loadout entries.
+Issues found and corrected include range-target reset handling, synchronous Humanoid death versus duel reward ordering, marker use in Warper teleport, preserved heat across switches, per-frame movement-envelope slack, overlapping simultaneous matches in one arena, invalid old-save loadout entries, and round cleanup mutating a projectile/deployment array during a lethal impact callback.
 
 The standalone Luau analyzer lacks Roblox engine globals/types; it is not a valid full Studio type check. Geometry, physics, DataStore integration, R6/R15 visuals, networking, UI readability, touch hitboxes, and frame-rate claims remain unverified. No Studio screenshots were captured or compared.
 

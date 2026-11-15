@@ -58,4 +58,11 @@ s.charges.medkit=2; s.cooldowns.medkit=0; h.Health=30; Utility.activate(p,dir); 
 check(h.Health==30,"Incoming damage interrupts heal")
 s.cooldowns.medkit=0; s.busy=0; Utility.activate(p,dir); Combat.equip(p,"handgun"); advance(3)
 check(h.Health==30,"Switch cancels heal completion")
+local other={}; Combat.Shots={{owner=p},{owner=other},{owner=p}}
+local destroyed=false
+Combat.Deployments={{owner=p,part={Destroy=function() destroyed=true end}}}
+Combat.cleanup(p)
+check(#Combat.Shots==3 and Combat.Shots[1].cancelled and Combat.Shots[3].cancelled,"Round cleanup must not mutate the projectile array inside a lethal-hit iteration")
+check(not Combat.Shots[2].cancelled,"Cleanup cannot cancel another player's shots")
+check(#Combat.Deployments==1 and Combat.Deployments[1].cancelled and destroyed,"Deployment cleanup marks cancellation while removing its physical object")
 print("PASS",total,"combat lifecycle assertions with mocked engine")
