@@ -54,7 +54,7 @@ function World.build(onRange,onLobby,onDuel)
 	for _,z in ipairs({-75,75}) do part(arena,"Wall",Vector3.new(130,30,2),CFrame.new(a+Vector3.new(0,15,z)),white) end
 	for _,v in ipairs({Vector3.new(-25,5,-20),Vector3.new(25,5,20),Vector3.new(0,4,0)}) do part(arena,"Cover",Vector3.new(16,8,12),CFrame.new(a+v),white) end
 	-- Attach interaction kiosks near the existing spawn; preserve the house geometry.
-	local spawn=workspace:FindFirstChild("ZIVRA_Spawn",true)
+	local spawn=workspace:FindFirstChild("ZIVRA_Spawn",true) or (workspace:FindFirstChild("ZIVRA_Corridor") and workspace.ZIVRA_Corridor:FindFirstChild("LobbySpawn"))
 	World.LobbyCFrame=spawn and spawn.CFrame+Vector3.new(0,4,0) or CFrame.new(0,6,9)
 	local base=World.LobbyCFrame.Position
 	local entrance=part(folder,"RangeKiosk",Vector3.new(8,5,1),CFrame.new(base+Vector3.new(12,0,0)),dark)

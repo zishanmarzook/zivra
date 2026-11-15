@@ -1,6 +1,6 @@
 # Required Roblox Studio acceptance checks
 
-These checks have **not** been run by the cloud session. Test a saved copy of your existing place. Keep Output visible. Do not publish this branch as production-ready based on syntax/unit tests alone.
+Selected checks were run in the connected Studio session on 15 November 2026; see `docs/STUDIO_REVIEW_2026-11-15.md` for exact results and remaining gaps. The checklist below is broader than the completed checks. Test a saved copy of your existing place. Keep Output visible. Do not publish this branch as production-ready based on syntax/unit tests alone.
 
 ## First boot and core lifecycle
 

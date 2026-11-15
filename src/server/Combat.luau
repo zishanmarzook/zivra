@@ -47,7 +47,7 @@ function Combat.reset(player)
 	local _,h,r=Combat.alive(player)
 	if h then h.Health=h.MaxHealth end
 	if r then s.lastPosition=r.Position; s.movementWindow={position=r.Position,time=clock()} end
-	Held.equip(player,s.loadout[s.slot])
+	if s.mode~="Lobby" then Held.equip(player,s.loadout[s.slot]) end
 	Combat.snapshot(player)
 end
 function Combat.cleanup(player)
@@ -63,7 +63,14 @@ function Combat.cleanup(player)
 end
 function Combat.transition(player,mode,cf)
 	local s=Combat.States[player]; if not s then return end
-	s.mode=mode; s.loadout=table.clone(s.profile.loadout); s.slot=1; s.queued=false
+	if mode~="Lobby" then s.lobbyReturn=s.mode=="Lobby" and player.Character and player.Character:GetPivot() or s.lobbyReturn end
+    player:SetAttribute("ZIVRACombatMode",mode)
+    if player.Character then player.Character:SetAttribute("ZIVRAMovementExemptUntil",workspace:GetServerTimeNow()+3) end
+    if mode=="Lobby" then
+        local held=player.Character and player.Character:FindFirstChild("ZIVRA_Held"); if held then held:Destroy() end
+        cf=s.lobbyReturn or cf
+    end
+    s.mode=mode; s.loadout=table.clone(s.profile.loadout); s.slot=1; s.queued=false
 	if mode=="Range" then s.rangeStats={shots=0,hits=0,damage=0,started=clock()} end
 	local _,h,r=Combat.alive(player)
 	if r then player.Character:PivotTo(cf); r.AssemblyLinearVelocity=Vector3.zero; s.lastPosition=cf.Position end
@@ -81,7 +88,7 @@ function Combat.equip(player,id)
 	end
 	s.slot=d.slot; s.epoch+=1; s.busy=clock()+d.equip; s.trigger=nil; s.blocking=false; s.grapple=nil
 	-- Heat belongs to the state conservatively: switching cannot clear overheating.
-	Held.equip(player,d.id)
+	if s.mode~="Lobby" then Held.equip(player,d.id) end
 	Combat.snapshot(player,"Equipped "..d.name)
 end
 function Combat.params(player)
@@ -274,7 +281,7 @@ end
 function Combat.step(dt,now)
 	for player,s in pairs(Combat.States) do
 		local alive,h,r=Combat.alive(player)
-		if alive then
+		if alive and s.mode~="Lobby" then
 			local d=Weapons.ById[s.loadout[s.slot]]
 			s.heat=math.max(0,s.heat-dt*(d.cooling or 0.3)); if s.overheated and s.heat<0.2 then s.overheated=false end
 			s.bloom=math.max(0,(s.bloom or 0)-dt*1.5)

@@ -53,7 +53,11 @@ local function retry(fn)
 	return false,last
 end
 function Profiles.load(player)
-	local token=HttpService:GenerateGUID(false)
+	if RunService:IsStudio() and workspace:GetAttribute("ZIVRA_OfflineProfiles")==true then
+        local session={data=defaults(),offline=true}; Profiles.Sessions[player]=session
+        return session.data,"Offline Studio profile (not saved)"
+    end
+    local token=HttpService:GenerateGUID(false)
 	local ok,value=retry(function()
 		return Store:UpdateAsync("u:"..player.UserId,function(old)
 			assert(old==nil or type(old)=="table" and type(old.data)=="table","Unrecognized record; refusing to overwrite")

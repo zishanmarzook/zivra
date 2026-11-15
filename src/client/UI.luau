@@ -2,6 +2,7 @@ local Players=game:GetService("Players")
 local TweenService=game:GetService("TweenService")
 local UIS=game:GetService("UserInputService")
 local Lighting=game:GetService("Lighting")
+local GuiService=game:GetService("GuiService")
 local Weapons=require(game.ReplicatedStorage.ZIVRA.Weapons)
 local Models=require(game.ReplicatedStorage.ZIVRA.Models)
 local T=require(game.ReplicatedStorage.ZIVRA.Theme)
@@ -18,6 +19,7 @@ local function label(parent,text,size,pos,dim,color)
 		TextXAlignment=Enum.TextXAlignment.Left,Position=pos or UDim2.new(),Size=dim or UDim2.fromScale(1,1),TextTruncate=Enum.TextTruncate.AtEnd})
 end
 local function button(parent,text,pos,dim,fn)
+	if dim.Y.Scale==0 and dim.Y.Offset>0 then dim=UDim2.new(dim.X.Scale,dim.X.Offset,0,math.max(44,dim.Y.Offset)) end
 	local b=make("TextButton",parent,{Text=text,TextSize=13,Font=T.Bold,TextColor3=T.Text,BackgroundColor3=T.Raised,
 		AutoButtonColor=false,Position=pos,Size=dim,BorderSizePixel=0})
 	round(b,6); stroke(b)
@@ -47,6 +49,7 @@ function UI.setMenu(open,screen)
 	UI.invites.Visible=open and screen=="Invites"
 	if UI.invites.Visible then UI.rebuildInvites() end
 	if open and UI.weaponPanel.Visible then UI.rebuild() end
+	if UIS.GamepadEnabled then GuiService.SelectedObject=open and (UI.options.Visible and UI.qualityButton or UI.equip) or nil end
 end
 function UI.rebuildInvites()
 	for _,x in ipairs(UI.playerList:GetChildren()) do if x:IsA("GuiObject") then x:Destroy() end end
@@ -76,8 +79,7 @@ function UI.rebuild()
 	for order,d in ipairs(Weapons.List) do
 		if d.slot==UI.category then
 			local b=button(UI.grid,"",UDim2.new(),UDim2.new(),function() UI.choose(d.id) end); b.LayoutOrder=order
-			if d.rarity=="Experimental" then b.BackgroundColor3=Color3.fromRGB(49,29,64); b.UIStroke.Color=T.Purple
-			elseif d.rarity=="Signature" then b.BackgroundColor3=Color3.fromRGB(64,52,26); b.UIStroke.Color=T.Gold end
+			if d.rarity=="Signature" then b.UIStroke.Color=T.Gold end
 			viewport(b,d,UDim2.fromScale(0,-0.03),UDim2.fromScale(1,0.78))
 			label(b,d.name,13,UDim2.fromScale(0.07,0.72),UDim2.fromScale(0.88,0.18)).Font=T.Bold
 			local owned=UI.state.owned[d.id]
@@ -104,7 +106,7 @@ function UI.resize()
 	local columns=width>=600 and 5 or width>=420 and 4 or 3
 	local size=math.floor((width-(columns-1)*8)/columns)
 	UI.gridLayout.CellSize=UDim2.fromOffset(size,size); UI.gridLayout.CellPadding=UDim2.fromOffset(8,8)
-	local phone=UI.root.AbsoluteSize.Y<500
+	local phone=UI.root.AbsoluteSize.Y<500 or UI.root.AbsoluteSize.X<600
 	UI.title.TextSize=phone and 15 or 20
 	UI.subtitle.Visible=not phone
 	UI.tabBar.Position=UDim2.fromOffset(0,phone and 40 or 64); UI.tabBar.Size=UDim2.new(1,0,0,phone and 62 or 86)
@@ -131,7 +133,7 @@ end
 function UI.init(send,onMenu,action)
 	UI.send=send; UI.onMenu=onMenu; UI.action=action
 	local player=Players.LocalPlayer
-	UI.gui=make("ScreenGui",player:WaitForChild("PlayerGui"),{Name="ZIVRA_UI",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,IgnoreGuiInset=false,DisplayOrder=20})
+	UI.gui=make("ScreenGui",player:WaitForChild("PlayerGui"),{Name="ZIVRA_UI",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,IgnoreGuiInset=false,ScreenInsets=Enum.ScreenInsets.CoreUISafeInsets,DisplayOrder=20})
 	UI.root=make("Frame",UI.gui,{Size=UDim2.fromScale(1,1),BackgroundTransparency=1})
 	UI.blur=make("BlurEffect",Lighting,{Name="ZIVRA_MenuBlur",Size=0})
 	UI.top=label(UI.root,"ZIVRA  /  HEADQUARTERS",13,UDim2.fromOffset(16,8),UDim2.new(0.6,0,0,24)); UI.top.Font=T.Bold
@@ -143,7 +145,7 @@ function UI.init(send,onMenu,action)
 	UI.ammo=label(UI.root,"",16,UDim2.new(1,-240,1,-42),UDim2.fromOffset(220,24)); UI.ammo.TextXAlignment=Enum.TextXAlignment.Right
 	UI.reticle=make("Frame",UI.root,{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(2,2),BackgroundColor3=T.Text,BorderSizePixel=0})
 	UI.cross={}; for i=1,4 do UI.cross[i]=make("Frame",UI.reticle,{AnchorPoint=Vector2.new(0.5,0.5),Size=UDim2.fromOffset(i<=2 and 6 or 2,i<=2 and 2 or 6),BackgroundColor3=T.Text,BorderSizePixel=0}) end
-	UI.hit=label(UI.root,"×",26,UDim2.fromScale(0.5,0.5),UDim2.fromOffset(30,30)); UI.hit.AnchorPoint=Vector2.new(0.5,0.5); UI.hit.TextXAlignment=Enum.TextXAlignment.Center; UI.hit.Visible=false
+	UI.hit=label(UI.root,"X",26,UDim2.fromScale(0.5,0.5),UDim2.fromOffset(30,30)); UI.hit.AnchorPoint=Vector2.new(0.5,0.5); UI.hit.TextXAlignment=Enum.TextXAlignment.Center; UI.hit.Visible=false
 	UI.nav=make("Frame",UI.root,{AnchorPoint=Vector2.new(0.5,1),Position=UDim2.new(0.5,0,1,-68),Size=UDim2.new(0.94,0,0,40),BackgroundTransparency=1})
 	make("UISizeConstraint",UI.nav,{MaxSize=Vector2.new(720,40)})
 	make("UIListLayout",UI.nav,{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Center,Padding=UDim.new(0,8)})

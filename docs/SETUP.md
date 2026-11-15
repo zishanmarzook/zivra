@@ -1,3 +1,5 @@
+> Existing audited place (121932020544473): use the selective update described in `docs/STUDIO_REVIEW_2026-11-15.md`. Do not rerun the fresh installer or replace the place. The current place includes headquarters, map, movement and M4 systems outside the original three-root mapping. Their scripts are preserved in `studio-snapshot/`; their geometry and existing remotes remain Studio-owned.
+
 # Install and synchronize ZIVRA
 
 ## Easiest route: one Command Bar paste

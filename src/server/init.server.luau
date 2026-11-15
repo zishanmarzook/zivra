@@ -12,6 +12,25 @@ local request=Instance.new("RemoteEvent"); request.Name="Request"; request.Paren
 local feedback=Instance.new("RemoteEvent"); feedback.Name="Feedback"; feedback.Parent=Shared
 Combat.init(feedback,World,Profiles); Combat.Projectiles=Projectiles; Combat.Utility=Utility
 Projectiles.init(Combat); Utility.init(Combat)
+local function available(player)
+    if player:GetAttribute("ZIVRAInMatch") or player:GetAttribute("ZIVRATraining") then return false end
+    local hq=game.ServerScriptService:FindFirstChild("ZIVRAHQServices")
+    if hq then local party=require(hq.LobbyService).Core:Get(player.UserId); if party and party.state~="Idle" then return false end end
+    return true
+end
+local stashed={}
+local function tools(player)
+    local active=player:GetAttribute("ZIVRACombatMode")~="Lobby" and player:GetAttribute("ZIVRACombatMode")~=nil
+    if active then
+        local folder=stashed[player]
+        if not folder then folder=Instance.new("Folder");folder.Name="ZIVRA_Stashed_"..player.UserId;folder.Parent=game.ServerStorage;stashed[player]=folder end
+        local h=player.Character and player.Character:FindFirstChildOfClass("Humanoid");if h then h:UnequipTools() end
+        for _,container in {player.Backpack,player.Character} do if container then for _,item in container:GetChildren() do if item:IsA("Tool") then item.Parent=folder end end end end
+    elseif stashed[player] then
+        for _,item in stashed[player]:GetChildren() do item.Parent=player.Backpack end
+        stashed[player]:Destroy();stashed[player]=nil
+    end
+end
 local matches={}; local invitations={}; local arenaReady=0; local nextMatch=0; local connections={}; local shuttingDown=false
 local finishMatch
 local function lobby(player)
@@ -21,7 +40,7 @@ local function lobby(player)
 end
 local function enterRange(player)
 	local s=Combat.States[player]
-	if not s or s.mode~="Lobby" or not Combat.alive(player) then return end
+	if not s or s.mode~="Lobby" or not Combat.alive(player) or not available(player) then return end
 	Combat.transition(player,"Range",CFrame.new(World.Origin+Vector3.new(0,5,80)))
 end
 finishMatch=function(id,winner,message)
@@ -54,6 +73,7 @@ local function startDuel(first,second)
 	-- One physical arena: serialize matches until instanced arenas are introduced.
 	if next(matches) or os.clock()<arenaReady then return false end
 	local a,b=Combat.States[first],Combat.States[second]
+	if not available(first) or not available(second) then return false end
 	if not a or not b or a.mode~="Lobby" or b.mode~="Lobby" or not Combat.alive(first) or not Combat.alive(second) then return false end
 	nextMatch+=1; local id=nextMatch
 	matches[id]={players={first,second},expires=os.clock()+180}
@@ -81,8 +101,12 @@ local function characterAdded(player,character)
 	local s=Combat.States[player]; if not s then return end
 	if s.match then finishMatch(s.match,nil,"Duel ended after respawn") end
 	s.eliminated=false
-	Combat.transition(player,"Lobby",World.LobbyCFrame)
-	if connections[player] and connections[player].death then connections[player].death:Disconnect() end
+	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
+    s.mode="Lobby";player:SetAttribute("ZIVRACombatMode","Lobby");tools(player);Combat.reset(player)
+    if connections[player] and connections[player].health then connections[player].health:Disconnect() end
+    local lastHealth=h.Health
+    connections[player].health=h.HealthChanged:Connect(function(value) if value<lastHealth then s.lastHit=os.clock() end;lastHealth=value end)
+    if connections[player] and connections[player].death then connections[player].death:Disconnect() end
 	local death=h.Died:Connect(function()
 		Combat.cleanup(player); s.epoch+=1; s.trigger=nil; s.blocking=false; s.grapple=nil
 		if s.match and not s.pendingElimination then finishMatch(s.match,nil,"Duel ended") end
@@ -94,6 +118,8 @@ local function added(player)
 	if not profile then return end
 	if not player.Parent then Profiles.save(player,true); return end
 	Combat.add(player,profile,offline); connections[player]={}
+    player:SetAttribute("ZIVRACombatMode","Lobby")
+    connections[player].mode=player:GetAttributeChangedSignal("ZIVRACombatMode"):Connect(function() tools(player) end)
 	connections[player].character=player.CharacterAdded:Connect(function(c) characterAdded(player,c) end)
 	if player.Character then task.spawn(characterAdded,player,player.Character) end
 	Combat.snapshot(player,offline)
@@ -106,6 +132,7 @@ Players.PlayerRemoving:Connect(function(player)
 	Combat.cleanup(player); Combat.States[player]=nil; invitations[player]=nil
 	for target,invite in pairs(invitations) do if invite.from==player then invitations[target]=nil end end
 	if connections[player] then for _,c in pairs(connections[player]) do c:Disconnect() end; connections[player]=nil end
+	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
 	Profiles.save(player,true)
 end)
 local function settings(s,value)
