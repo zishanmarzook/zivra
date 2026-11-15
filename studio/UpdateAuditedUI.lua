@@ -54,8 +54,10 @@ local Config=require(Shared.Config);local U=require(Shared.UIComponents);local R
 local modes={};for _,v in Config.Modes do modes[v.Id]=v end
 local gui=Instance.new('ScreenGui');gui.Name='ZIVRAHeadquarters';gui.ResetOnSpawn=false;gui.DisplayOrder=15;gui.ScreenInsets=Enum.ScreenInsets.CoreUISafeInsets;gui.Parent=p:WaitForChild('PlayerGui')
 local header=U.Frame(gui,'Header',UDim2.new(1,-32,0,58),UDim2.fromOffset(16,10),U.Colors.BG)
-local brand=U.Text(header,'Z I V R A',UDim2.new(0.4,0,0,28),UDim2.fromOffset(16,3),23);brand.Font=Enum.Font.GothamBold
-local status=U.Text(header,'HEADQUARTERS / CONNECTING',UDim2.new(0.5,0,0,17),UDim2.fromOffset(16,33),11,U.Colors.Cyan)
+-- ForgeGUI sample: job a1a35325-3d24-4baa-b32d-1546d85fe1c8; approved personal Image.
+local emblem=Instance.new('ImageLabel');emblem.Name='ZIVRAEmblem';emblem.BackgroundTransparency=1;emblem.Image='rbxassetid://129565854362406';emblem.ScaleType=Enum.ScaleType.Fit;emblem.Size=UDim2.fromOffset(48,48);emblem.Position=UDim2.fromOffset(8,5);emblem.Parent=header
+local brand=U.Text(header,'Z I V R A',UDim2.new(0.4,0,0,28),UDim2.fromOffset(64,3),23);brand.Font=Enum.Font.GothamBold
+local status=U.Text(header,'HEADQUARTERS / CONNECTING',UDim2.new(0.5,0,0,17),UDim2.fromOffset(64,33),11,U.Colors.Cyan)
 local avatar=Instance.new('ImageLabel');avatar.Size=UDim2.fromOffset(42,42);avatar.Position=UDim2.new(1,-210,0,8);avatar.BackgroundTransparency=1;avatar.Parent=header
 local identity=U.Text(header,p.DisplayName,UDim2.fromOffset(156,24),UDim2.new(1,-160,0,6),14)
 local level=U.Text(header,'SESSION PROFILE',UDim2.fromOffset(156,18),UDim2.new(1,-160,0,31),11,U.Colors.Muted)
@@ -213,9 +215,10 @@ local function layout()
  local size=workspace.CurrentCamera.ViewportSize;local mobile=size.X<800 or size.Y<550
  local navWidth=mobile and 112 or 148
  local top=mobile and 60 or 82;shell:SetAttribute('Top',top);shell.Position=UDim2.fromOffset(16,top);shell.Size=UDim2.new(1,-32,1,mobile and -124 or -158)
- header.Size=UDim2.new(1,-32,0,mobile and 42 or 58);brand.TextSize=mobile and 18 or 23;status.Position=UDim2.fromOffset(16,mobile and 25 or 33);status.TextSize=mobile and 9 or 11
+ header.Size=UDim2.new(1,-32,0,mobile and 42 or 58);brand.TextSize=mobile and 18 or 23;status.Position=UDim2.fromOffset(mobile and 54 or 64,mobile and 25 or 33);status.TextSize=mobile and 9 or 11
  nav.Size=UDim2.new(0,navWidth,1,0);content.Position=UDim2.fromOffset(navWidth+16,mobile and 40 or 55);content.Size=UDim2.new(1,-navWidth-30,1,mobile and -48 or -66);heading.Position=UDim2.fromOffset(navWidth+16,8)
  for i,name in {'Play','Loadout','Career','Missions','Friends','Leaderboards','Settings','Training'} do local b=navButtons[name];b.Size=UDim2.new(1,-12,0,42);b.Position=UDim2.fromOffset(6,8+(i-1)*48);b.TextSize=mobile and 11 or 13 end
+ emblem.Size=UDim2.fromOffset(mobile and 36 or 48,mobile and 36 or 48);emblem.Position=UDim2.fromOffset(8,mobile and 3 or 5);brand.Position=UDim2.fromOffset(mobile and 54 or 64,3)
  avatar.Visible=not mobile;identity.Visible=not mobile;level.Visible=not mobile
 end
 workspace.CurrentCamera:GetPropertyChangedSignal('ViewportSize'):Connect(layout);layout()
