@@ -836,6 +836,297 @@ function UI.flashScreen(intensity,duration)
 	TweenService:Create(UI.flash,TweenInfo.new(duration),{BackgroundTransparency=1}):Play()
 end
 return UI
+]=]},
+{path=[=[
+ReplicatedStorage.ZIVRA.MatchAdapter]=],beforeBytes=641,beforeHash=989639418,after=[=[
+local TeleportService=game:GetService('TeleportService')
+local Adapter={}
+function Adapter.Start(spec,players)
+ if not spec.DestinationPlaceId or spec.DestinationPlaceId<=0 then
+  return require(game.ServerScriptService.ZIVRAMapServices.RoundService).Start(spec,players)
+ end
+ local options=Instance.new('TeleportOptions');options.ShouldReserveServer=true
+ options:SetTeleportData({Mode=spec.Id})
+ local ok,err=pcall(function() TeleportService:TeleportAsync(spec.DestinationPlaceId,players,options) end)
+ if not ok then warn('ZIVRA teleport:',err);return false,'TELEPORT FAILED â€” TRY AGAIN' end
+ return true,'DEPARTING'
+end
+return Adapter
+]=]},
+{path=[=[
+ServerScriptService.ZIVRAMapServices.RoundService]=],beforeBytes=6650,beforeHash=1427793229,after=[=[
+local Players=game:GetService('Players')
+local Teams=game:GetService('Teams')
+local Shared=game.ReplicatedStorage.ZIVRAMapShared
+local C=require(Shared.MapConfig);local Maps=require(script.Parent.MapService);local Spawn=require(script.Parent.SpawnService)
+local Remote=Shared.MapSelection
+local R={Current=nil,Completed=Instance.new('BindableEvent')};local requests={}
+local function packet(s,kind,extra)
+ for p in pairs(s.members) do if p.Parent==Players then Remote:FireClient(p,kind,extra) end end
+end
+local function finish(s,message,winner)
+ if R.Current~=s then return end
+ R.Current=nil
+ local valid=s.phase=='Playing' and s.started and os.clock()-s.started>=10 and (winner==1 or winner==2)
+ R.Completed:Fire(s.members,winner,valid,message)
+ for _,cn in s.connections do cn:Disconnect() end
+ for p,data in pairs(s.members) do
+  if p.Parent==Players then
+   Spawn.Lobby(p,data.team,data.neutral);Remote:FireClient(p,'Lobby',{message=message})
+  end
+ end
+ Maps.Unload()
+ for _,team in s.teams do team:Destroy() end
+end
+R.Finish=function(message) if R.Current then finish(R.Current,message or 'MATCH ENDED') end end
+function R.Start(spec,participants)
+ if R.Current then return false,'ARENA BUSY â€” TRY AGAIN' end
+ local mode=C.ModeAliases[spec.Id] or spec.Id
+ local eligible=Maps.Eligible(mode)
+ if #eligible==0 then return false,'MODE NOT AVAILABLE YET' end
+ if #participants<2 or #participants%2~=0 or #participants~=spec.Capacity then return false,'INVALID TEAM SIZE' end
+ if spec.TeamAssignments then
+  local counts={0,0};for _,p in participants do local side=spec.TeamAssignments[p.UserId];if side~=1 and side~=2 then return false,'INVALID TEAM ASSIGNMENT' end;counts[side]+=1 end
+  if counts[1]~=#participants/2 or counts[2]~=#participants/2 then return false,'UNBALANCED TEAMS' end
+ end
+ local s={members={},votes={},connections={},teams={},phase='Voting',eligible=eligible}
+ for _,p in participants do
+  if s.members[p] then return false,'DUPLICATE PLAYER' end
+  local c=p.Character;local h=c and c:FindFirstChildOfClass('Humanoid')
+  if not h or h.Health<=0 or p:GetAttribute('ZIVRAInMatch') then return false,'PLAYER NOT READY' end
+  s.members[p]={team=p.Team,neutral=p.Neutral,alive=true}
+ end
+ R.Current=s
+ for p in pairs(s.members) do p:SetAttribute('ZIVRAInMatch',true) end
+ packet(s,'Vote',{maps=eligible,mode=mode,deadline=workspace:GetServerTimeNow()+C.VoteSeconds})
+ task.spawn(function()
+  task.wait(C.VoteSeconds)
+  if R.Current~=s then return end
+  local counts={};for _,id in eligible do counts[id]=0 end
+  local count=0;for p in pairs(s.members) do if p.Parent==Players then count+=1 end end
+  if count~=#participants then finish(s,'MATCH CANCELLED â€” PLAYER LEFT');return end
+  for p,id in pairs(s.votes) do if s.members[p] then counts[id]+=1 end end
+  local selected=eligible[math.random(1,#eligible)]
+  for _,id in eligible do if counts[id]>counts[selected] then selected=id end end
+  local ok,active=pcall(Maps.Load,selected)
+  if not ok then warn('ZIVRA map load:',active);finish(s,'MAP FAILED TO LOAD');return end
+  s.phase='Preparing';s.ready={};s.preparation=game:GetService('HttpService'):GenerateGUID(false)
+  packet(s,'Prepare',{map=selected,token=s.preparation,origin=C.Origin.Position})
+  local preparationDeadline=os.clock()+12
+  local allReady=false
+  repeat
+   allReady=true
+   for p in pairs(s.members) do if not s.ready[p] then allReady=false;break end end
+   if not allReady then task.wait(0.1) end
+  until allReady or R.Current~=s or os.clock()>=preparationDeadline
+  if R.Current~=s then return end
+  if not allReady then finish(s,'MAP STREAMING TIMED OUT â€” TRY AGAIN');return end
+  s.phase='Playing';s.started=os.clock()
+  for _,name in {'A','B'} do
+   local t=Instance.new('Team');t.Name='ZIVRA Match '..name;t.TeamColor=BrickColor.new(name=='A' and 'Bright blue' or 'Bright orange');t.AutoAssignable=false;t.Parent=Teams;table.insert(s.teams,t)
+  end
+  local shuffled=table.clone(participants)
+  if spec.TeamAssignments then
+   table.sort(shuffled,function(a,b)
+    local sa,sb=spec.TeamAssignments[a.UserId],spec.TeamAssignments[b.UserId]
+    return sa==sb and a.UserId<b.UserId or sa<sb
+   end)
+  else for i=#shuffled,2,-1 do local j=math.random(i);shuffled[i],shuffled[j]=shuffled[j],shuffled[i] end end
+  local half=#shuffled/2
+  for i,p in shuffled do
+   local side=i<=half and 1 or 2;local index=(i-1)%half+1
+   local marker=active.Model.Spawns:FindFirstChild(string.format('Team%s_Spawn_%02d',side==1 and 'A' or 'B',index))
+   if not marker or not Spawn.Place(p,marker,s.teams[side]) then finish(s,'SPAWN FAILED');return end
+   s.members[p].side=side
+   local h=p.Character.Humanoid
+   table.insert(s.connections,h.Died:Connect(function()
+    if R.Current~=s then return end
+    s.members[p].alive=false
+    local alive={0,0};for q,data in pairs(s.members) do if q.Parent==Players and data.alive then alive[data.side]+=1 end end
+    if alive[1]==0 or alive[2]==0 then task.delay(1.5,function() if R.Current==s then finish(s,alive[1]==alive[2] and 'DRAW' or 'TEAM '..(alive[1]>0 and 'A' or 'B')..' WINS',alive[1]>0 and 1 or alive[2]>0 and 2 or nil) end end) end
+   end))
+   table.insert(s.connections,p.CharacterAdded:Connect(function()
+    if R.Current==s then s.members[p].alive=false;Remote:FireClient(p,'Lobby',{message='ELIMINATED â€” ROUND CONTINUES'}) end
+   end))
+  end
+  active.Zone:SetAttribute('Enabled',true)
+  packet(s,'Playing',{map=selected,deadline=workspace:GetServerTimeNow()+C.RoundSeconds})
+  while R.Current==s and os.clock()-s.started<C.RoundSeconds do
+   for p,data in pairs(s.members) do
+    local c=p.Character;local root=c and c:FindFirstChild('HumanoidRootPart')
+    if data.alive and root and root.Position.Y<C.Origin.Position.Y+(active.Model:GetAttribute('KillY') or -20) then c.Humanoid.Health=0 end
+   end
+   task.wait(0.3)
+  end
+  if R.Current==s then finish(s,'ROUND TIME LIMIT') end
+ end)
+ return true,'MAP VOTE STARTED'
+end
+Remote.OnServerEvent:Connect(function(player,action,id)
+ if action=='Ready' then
+  local s=R.Current
+  if s and s.phase=='Preparing' and s.members[player] and id==s.preparation then s.ready[player]=true end
+  return
+ end
+ if action~='Vote' or type(id)~='string' then return end
+ local now=os.clock();if now-(requests[player] or 0)<0.2 then return end;requests[player]=now
+ local s=R.Current
+ if not s or s.phase~='Voting' or not s.members[player] or not table.find(s.eligible,id) then return end
+ s.votes[player]=id;Remote:FireClient(player,'Selected',{map=id})
+end)
+Players.PlayerRemoving:Connect(function(p)
+ requests[p]=nil;local s=R.Current
+ if s and s.members[p] then finish(s,'MATCH ENDED â€” PLAYER LEFT') end
+end)
+return R]=]},
+{path=[=[
+StarterPlayer.StarterPlayerScripts.ZIVRAWeaponClient]=],beforeBytes=8427,beforeHash=793601739,after=[=[
+-- StarterPlayer.StarterPlayerScripts.ZIVRAWeaponClient
+local Players=game:GetService('Players')
+local UIS=game:GetService('UserInputService')
+local RunService=game:GetService('RunService')
+local TweenService=game:GetService('TweenService')
+local Debris=game:GetService('Debris')
+local player=Players.LocalPlayer
+local shared=game.ReplicatedStorage:WaitForChild('ZIVRAWeapons')
+local Config=require(shared.WeaponConfig)
+local spec=Config.Weapons.M4
+local remotes=shared.WeaponRemotes
+local gui=player:WaitForChild('PlayerGui'):WaitForChild('ZIVRAWeaponHUD',20)
+if not gui then warn('ZIVRA weapon HUD unavailable; rejoin to restore weapon controls.');return end
+local equipped,holding=false,false
+local fireGeneration=0
+local ammo,reserve,reloading=spec.Magazine,spec.Reserve,false
+local reloadEnd=0
+local toolConnections={}
+local function label(name,text,size,pos,fontSize)
+ local t=Instance.new('TextLabel');t.Name=name;t.Text=text;t.Size=size;t.Position=pos;t.BackgroundTransparency=1;t.TextColor3=Color3.fromRGB(224,235,255);t.Font=Enum.Font.GothamBold;t.TextSize=fontSize;t.TextWrapped=true;t.Parent=gui;return t
+end
+local panel=Instance.new('Frame');panel.Name='AmmoPanel';panel.AnchorPoint=Vector2.new(1,1);panel.Position=UDim2.new(1,-16,1,-90);panel.Size=UDim2.new(0.34,0,0,100);panel.BackgroundColor3=Color3.fromRGB(18,20,31);panel.BackgroundTransparency=0.12;panel.Parent=gui
+local constraint=Instance.new('UISizeConstraint');constraint.MaxSize=Vector2.new(290,100);constraint.Parent=panel
+local corner=Instance.new('UICorner');corner.CornerRadius=UDim.new(0,12);corner.Parent=panel
+local stroke=Instance.new('UIStroke');stroke.Color=Color3.fromRGB(160,76,245);stroke.Transparency=0.3;stroke.Parent=panel
+local name=label('WeaponName',spec.DisplayName,UDim2.new(1,-16,0,24),UDim2.fromOffset(8,5),13);name.Parent=panel
+local ammoText=label('Ammo','30 / 120',UDim2.new(1,-16,0,32),UDim2.fromOffset(8,29),24);ammoText.Parent=panel
+local status=label('Status','R / RELOAD',UDim2.new(1,-16,0,24),UDim2.fromOffset(8,65),11);status.Parent=panel
+local bar=Instance.new('Frame');bar.Name='ReloadProgress';bar.Position=UDim2.new(0,8,1,-5);bar.Size=UDim2.new(0,0,0,2);bar.BackgroundColor3=Color3.fromRGB(255,218,65);bar.BorderSizePixel=0;bar.Parent=panel
+local cross=label('Crosshair','+',UDim2.fromOffset(28,28),UDim2.new(0.5,-14,0.5,-14),25)
+local hit=label('Hitmarker','Ã-',UDim2.fromOffset(40,40),UDim2.new(0.5,-20,0.5,-20),34);hit.Visible=false
+local notice=label('Confirmation','',UDim2.new(0.6,0,0,30),UDim2.new(0.2,0,0.5,34),15)
+local function button(name,text,pos)
+ local b=Instance.new('TextButton');b.Name=name;b.Text=text;b.Position=pos;b.Size=UDim2.fromOffset(64,54);b.BackgroundColor3=Color3.fromRGB(34,31,56);b.BackgroundTransparency=0.2;b.TextColor3=Color3.fromRGB(238,232,255);b.TextSize=14;b.Font=Enum.Font.GothamBold;b.Parent=gui
+ local c=Instance.new('UICorner');c.CornerRadius=UDim.new(0,12);c.Parent=b;return b
+end
+local shoot=button('Shoot','FIRE',UDim2.new(1,-94,0.5,-24))
+local reload=button('Reload','RELOAD',UDim2.new(1,-168,0.5,40))
+local function refresh()
+ gui.Enabled=equipped
+ ammoText.Text=string.format('%02d / %03d',ammo,reserve)
+ status.Text=reloading and 'RELOADING' or ammo==0 and 'EMPTY // RELOAD' or 'R / RELOAD'
+ shoot.Visible=UIS.TouchEnabled;reload.Visible=true
+ -- Preserve the lobby HUD's visibility choice rather than modifying its controller.
+ cross.Visible=equipped
+end
+local function requestReload() if equipped then holding=false;remotes.Request:FireServer('Reload') end end
+reload.Activated:Connect(requestReload)
+local function startFire()
+ if holding or not equipped then return end;holding=true;fireGeneration+=1;local generation=fireGeneration
+ task.spawn(function()
+  while holding and equipped and generation==fireGeneration do
+   if ammo>0 and not reloading then
+    local camera=workspace.CurrentCamera
+    if camera then local size=camera.ViewportSize;local ray=camera:ViewportPointToRay(size.X/2,size.Y/2);remotes.Request:FireServer('Fire',ray.Origin,ray.Direction.Unit) end
+   end
+   task.wait(spec.FireInterval+0.005)
+  end
+ end)
+end
+shoot.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then startFire() end end)
+shoot.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then holding=false end end)
+UIS.InputBegan:Connect(function(input,processed)
+ if processed then return end
+ if input.KeyCode==Enum.KeyCode.R then requestReload() end
+end)
+UIS.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 then holding=false end end)
+UIS.WindowFocusReleased:Connect(function() holding=false end)
+local function watchTool(tool)
+ if not tool:IsA('Tool') or tool:GetAttribute('ZIVRAWeaponId')~='M4' or toolConnections[tool] then return end
+ toolConnections[tool]=true
+ tool.Equipped:Connect(function() equipped=true;holding=false;remotes.Request:FireServer('Sync');refresh() end)
+ tool.Unequipped:Connect(function() equipped=false;holding=false;refresh() end)
+ tool.Activated:Connect(startFire)
+ tool.Deactivated:Connect(function() holding=false end)
+ tool.Destroying:Connect(function() toolConnections[tool]=nil end)
+ if tool.Parent==player.Character then equipped=true;remotes.Request:FireServer('Sync');refresh() end
+end
+local function characterAdded(character)
+ equipped=false;holding=false;refresh()
+ for _,tool in character:GetChildren() do watchTool(tool) end
+ character.ChildAdded:Connect(watchTool)
+ local hum=character:WaitForChild('Humanoid');hum.Died:Connect(function() equipped=false;holding=false;refresh() end)
+end
+local backpack=player:WaitForChild('Backpack');for _,tool in backpack:GetChildren() do watchTool(tool) end;backpack.ChildAdded:Connect(watchTool)
+player.CharacterAdded:Connect(characterAdded);if player.Character then characterAdded(player.Character) end
+local confirmationSerial=0
+remotes.State.OnClientEvent:Connect(function(state)
+ ammo=state.ammo;reserve=state.reserve;reloading=state.reloading;reloadEnd=os.clock()+(state.reloadRemaining or 0)
+ if state.hit then
+  confirmationSerial+=1;local serial=confirmationSerial
+  hit.Visible=true;hit.TextColor3=state.headshot and Color3.fromRGB(255,215,70) or Color3.new(1,1,1)
+  notice.Text=state.kill and 'ELIMINATION' or state.headshot and 'HEADSHOT' or ''
+  task.delay(0.2,function() if serial==confirmationSerial then hit.Visible=false end end)
+  task.delay(1.5,function() if serial==confirmationSerial then notice.Text='' end end)
+ end
+ refresh()
+end)
+RunService.RenderStepped:Connect(function()
+ if not equipped then return end
+ bar.Size=UDim2.new(reloading and math.clamp(1-(reloadEnd-os.clock())/spec.ReloadTime,0,1) or 0,-0,0,2)
+end)
+local effectsFolder=Instance.new('Folder');effectsFolder.Name='ZIVRALocalWeaponFX';effectsFolder.Parent=workspace
+remotes.Effects.OnClientEvent:Connect(function(origin,finish,material,normal)
+ local distance=(finish-origin).Magnitude
+ if distance>0.01 then
+  local p=Instance.new('Part');p.Name='Tracer';p.Anchored=true;p.CanCollide=false;p.CanTouch=false;p.CanQuery=false;p.CastShadow=false;p.Material=Enum.Material.Neon;p.Color=Color3.fromRGB(255,222,105);p.Size=Vector3.new(0.055,0.055,distance);p.CFrame=CFrame.lookAt((origin+finish)/2,finish);p.Parent=effectsFolder;TweenService:Create(p,TweenInfo.new(0.09),{Transparency=1}):Play();Debris:AddItem(p,0.12)
+ end
+ local flash=Instance.new('Part');flash.Name='MuzzleFlash';flash.Shape=Enum.PartType.Ball;flash.Size=Vector3.new(0.25,0.25,0.4);flash.Position=origin;flash.Anchored=true;flash.CanCollide=false;flash.CanTouch=false;flash.CanQuery=false;flash.CastShadow=false;flash.Material=Enum.Material.Neon;flash.Color=Color3.fromRGB(255,221,136);flash.Parent=effectsFolder;Debris:AddItem(flash,0.05)
+ if normal then
+  local marker=Instance.new('Part');marker.Name='Impact';marker.Anchored=true;marker.CanCollide=false;marker.CanTouch=false;marker.CanQuery=false;marker.CastShadow=false;marker.Size=Vector3.new(0.13,0.13,0.13);marker.Position=finish+normal*0.03
+  marker.Color=(material=='Metal' or material=='DiamondPlate' or material=='CorrodedMetal') and Color3.fromRGB(255,208,87) or material=='Concrete' and Color3.fromRGB(168,164,155) or Color3.fromRGB(186,202,217)
+  marker.Material=Enum.Material.Neon;marker.Parent=effectsFolder;Debris:AddItem(marker,0.18)
+ end
+end)
+refresh()
+
+]=]},
+{path=[=[
+StarterGui.ZIVRALobbyUI.LobbyClient]=],beforeBytes=3322,beforeHash=764672767,after=[=[
+local Players=game:GetService('Players');local RS=game:GetService('ReplicatedStorage');local RunService=game:GetService('RunService');local TweenService=game:GetService('TweenService')
+local shared=RS:WaitForChild('ZIVRA');local config=require(shared.Config);local remote=shared.QueueAction;local root=workspace:WaitForChild('ZIVRA_Corridor');local gui=script.Parent
+local frame=Instance.new('Frame');frame.AnchorPoint=Vector2.new(0.5,1);frame.Position=UDim2.fromScale(0.5,0.95);frame.Size=UDim2.new(0.88,0,0,108);frame.BackgroundColor3=Color3.fromRGB(15,19,31);frame.BackgroundTransparency=0.08;frame.Visible=false;frame.Parent=gui
+local constraint=Instance.new('UISizeConstraint');constraint.MaxSize=Vector2.new(520,108);constraint.Parent=frame
+local corner=Instance.new('UICorner');corner.CornerRadius=UDim.new(0,12);corner.Parent=frame
+local text=Instance.new('TextLabel');text.Size=UDim2.new(1,-16,0,56);text.Position=UDim2.fromOffset(8,0);text.BackgroundTransparency=1;text.Font=Enum.Font.GothamBold;text.TextSize=16;text.TextWrapped=true;text.TextColor3=Color3.fromRGB(225,235,255);text.Parent=frame
+local leave=Instance.new('TextButton');leave.Size=UDim2.new(1,-24,0,38);leave.Position=UDim2.fromOffset(12,62);leave.BackgroundColor3=Color3.fromRGB(105,51,180);leave.Text='LEAVE QUEUE';leave.TextColor3=Color3.new(1,1,1);leave.Font=Enum.Font.GothamBold;leave.TextSize=16;leave.Parent=frame
+leave.Activated:Connect(function() remote:FireServer('Leave') end)
+local selected,noticeVersion=nil,0
+remote.OnClientEvent:Connect(function(action,value)
+ noticeVersion+=1
+ if action=='Joined' then selected=root.Stations:FindFirstChild(value);frame.Visible=true;leave.Visible=true
+  if selected then for _,p in selected:GetChildren() do if p.Name=='Outline' then local c=p.Color;p.Color=Color3.new(1,1,1);TweenService:Create(p,TweenInfo.new(0.6),{Color=c}):Play() end end end
+ elseif action=='Left' then selected=nil;frame.Visible=false
+ elseif action=='Notice' then selected=nil;frame.Visible=true;leave.Visible=false;text.Text=value;local version=noticeVersion;task.delay(4,function() if noticeVersion==version then frame.Visible=false end end)
+ end
+end)
+local holograms={};for _,v in root:GetDescendants() do if v:IsA('BasePart') and v:GetAttribute('AnimateHologram') then table.insert(holograms,{part=v,cf=v.CFrame}) end end
+local elapsed,acc=0,0
+RunService.RenderStepped:Connect(function(dt)
+ elapsed+=dt;acc+=dt;if acc<1/30 then return end;acc=0
+ local character=Players.LocalPlayer.Character;local hrp=character and character:FindFirstChild('HumanoidRootPart')
+ for _,entry in ipairs(holograms) do if hrp and (hrp.Position-entry.cf.Position).Magnitude<110 then entry.part.CFrame=entry.cf*CFrame.new(0,0.45*math.sin(elapsed*1.4),0)*CFrame.Angles(0,elapsed*0.5,math.pi/4);entry.part.Transparency=0.42+0.12*math.sin(elapsed*2) end end
+ if selected then text.Text=selected.Name..'  â€¢  '..tostring(selected:GetAttribute('QueueCount') or 0)..'/'..tostring(selected:GetAttribute('Capacity') or '?')..'\n'..tostring(selected:GetAttribute('Status') or '') end
+end)
+if config.AmbientSoundId>0 then local sound=Instance.new('Sound');sound.Name='ZIVRAAmbience';sound.SoundId='rbxassetid://'..config.AmbientSoundId;sound.Volume=config.AmbientVolume;sound.Looped=true;sound.Parent=game:GetService('SoundService');sound:Play() end
 ]=]}
 }
 local function find(path)

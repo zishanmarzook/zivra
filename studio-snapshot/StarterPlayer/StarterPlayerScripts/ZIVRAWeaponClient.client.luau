@@ -28,7 +28,7 @@ local ammoText=label('Ammo','30 / 120',UDim2.new(1,-16,0,32),UDim2.fromOffset(8,
 local status=label('Status','R / RELOAD',UDim2.new(1,-16,0,24),UDim2.fromOffset(8,65),11);status.Parent=panel
 local bar=Instance.new('Frame');bar.Name='ReloadProgress';bar.Position=UDim2.new(0,8,1,-5);bar.Size=UDim2.new(0,0,0,2);bar.BackgroundColor3=Color3.fromRGB(255,218,65);bar.BorderSizePixel=0;bar.Parent=panel
 local cross=label('Crosshair','+',UDim2.fromOffset(28,28),UDim2.new(0.5,-14,0.5,-14),25)
-local hit=label('Hitmarker','Ã—',UDim2.fromOffset(40,40),UDim2.new(0.5,-20,0.5,-20),34);hit.Visible=false
+local hit=label('Hitmarker','Ã-',UDim2.fromOffset(40,40),UDim2.new(0.5,-20,0.5,-20),34);hit.Visible=false
 local notice=label('Confirmation','',UDim2.new(0.6,0,0,30),UDim2.new(0.2,0,0.5,34),15)
 local function button(name,text,pos)
  local b=Instance.new('TextButton');b.Name=name;b.Text=text;b.Position=pos;b.Size=UDim2.fromOffset(64,54);b.BackgroundColor3=Color3.fromRGB(34,31,56);b.BackgroundTransparency=0.2;b.TextColor3=Color3.fromRGB(238,232,255);b.TextSize=14;b.Font=Enum.Font.GothamBold;b.Parent=gui
