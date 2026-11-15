@@ -25,6 +25,7 @@ function Combat.snapshot(player,message)
 	local p=s.profile
 	Combat.send(player,"State",{mode=s.mode,loadout=s.loadout,owned=p.owned,slot=s.slot,ammo=s.ammo,
 		reserve=s.reserve,charges=s.charges,heat=s.heat,busy=math.max(0,s.busy-clock()),cooldowns=s.cooldowns,
+		reloading=s.reloadEpoch==s.epoch and clock()<s.busy,
 		currency=p.currency,daily=Combat.Profiles.daily(p),settings=p.settings,stats=s.rangeStats,
 		message=message,queued=s.queued,serverTime=clock(),offline=s.offline})
 end
@@ -182,7 +183,7 @@ function Combat.reload(player)
 	local s=Combat.States[player]; if not s then return end
 	local d=Weapons.ById[s.loadout[s.slot]]
 	if not Combat.alive(player) or s.menu or s.mode=="Lobby" or not d.magazine or clock()<s.busy or s.ammo[d.id]>=d.magazine or s.reserve[d.id]<=0 then return end
-	s.epoch+=1; local epoch=s.epoch; s.busy=clock()+d.reload; s.trigger=nil; s.blocking=false
+	s.epoch+=1; local epoch=s.epoch; s.reloadEpoch=epoch; s.busy=clock()+d.reload; s.trigger=nil; s.blocking=false
 	Combat.send(player,"Reload",{duration=d.reload}); Combat.snapshot(player)
 	task.delay(d.reload,function()
 		if Combat.States[player]~=s or s.epoch~=epoch or not Combat.alive(player) then return end

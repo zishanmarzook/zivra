@@ -3,6 +3,8 @@ from pathlib import Path
 r=Path('.');old=json.loads(Path('docs/STUDIO_SOURCE_BASELINE.json').read_text(encoding='utf-8'))
 pairs=[('ReplicatedStorage.ZIVRA.Theme','src/shared/Theme.luau'),('ReplicatedStorage.ZIVRAHQ.UIComponents','studio-snapshot/ReplicatedStorage/ZIVRAHQ/UIComponents.luau'),('StarterPlayer.StarterPlayerScripts.ZIVRAHQClient','studio-snapshot/StarterPlayer/StarterPlayerScripts/ZIVRAHQClient.client.luau'),('StarterPlayer.StarterPlayerScripts.ZIVRA_Client','src/client/init.client.luau'),('StarterPlayer.StarterPlayerScripts.ZIVRA_Client.UI','src/client/UI.luau')]
 pairs+=[('ReplicatedStorage.ZIVRA.MatchAdapter', 'src/shared/MatchAdapter.luau'), ('ServerScriptService.ZIVRAMapServices.RoundService', 'studio-snapshot/ServerScriptService/ZIVRAMapServices/RoundService.luau'), ('StarterPlayer.StarterPlayerScripts.ZIVRAWeaponClient', 'studio-snapshot/StarterPlayer/StarterPlayerScripts/ZIVRAWeaponClient.client.luau'), ('StarterGui.ZIVRALobbyUI.LobbyClient', 'studio-snapshot/StarterGui/ZIVRALobbyUI/LobbyClient.client.luau')]
+pairs+=[('ServerScriptService.ZIVRA_Server.Combat','src/server/Combat.luau')]
+
 def q(s):
  eq='='
  while ']'+eq+']' in s:eq+='='

@@ -175,6 +175,7 @@ feedback.OnClientEvent:Connect(function(kind,data)
 	elseif kind=="Reload" then VM.reload(data.duration)
 	elseif kind=="Healing" then VM.reload(data.duration); UI.notice("Healing - taking damage interrupts")
 	elseif kind=="Hurt" then
+		UI.showDamage(data.from)
 		UI.healthText.TextColor3=Color3.fromRGB(255,65,75)
 		task.delay(0.15,function() UI.healthText.TextColor3=Color3.fromRGB(16,17,22) end)
 	elseif kind=="Flash" then UI.flashScreen(data.intensity,data.duration)

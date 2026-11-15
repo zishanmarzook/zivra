@@ -19,7 +19,7 @@ local identity=U.Text(header,p.DisplayName,UDim2.fromOffset(156,24),UDim2.new(1,
 local level=U.Text(header,'SESSION PROFILE',UDim2.fromOffset(156,18),UDim2.new(1,-160,0,31),11,U.Colors.Muted)
 task.spawn(function() local ok,url=pcall(function() return Players:GetUserThumbnailAsync(p.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size100x100) end);if ok then avatar.Image=url end end)
 local shell=U.Frame(gui,'Menu',UDim2.new(1,-32,1,-158),UDim2.fromOffset(16,82),U.Colors.BG)
-shell.BackgroundTransparency=0.04
+shell.BackgroundTransparency=0.04;shell.Visible=false
 local nav=Instance.new('ScrollingFrame');nav.Name='Navigation';nav.Size=UDim2.new(0,148,1,0);nav.BackgroundColor3=U.Colors.Panel;nav.BorderSizePixel=0;nav.ScrollBarThickness=3;nav.CanvasSize=UDim2.fromOffset(0,400);nav.Parent=shell
 local content=U.Frame(shell,'Page',UDim2.new(1,-178,1,-66),UDim2.fromOffset(164,55),U.Colors.BG)
 local heading=U.Text(shell,'PLAY',UDim2.new(1,-230,0,38),UDim2.fromOffset(164,8),23);heading.Font=Enum.Font.GothamBold
@@ -222,7 +222,7 @@ task.spawn(function()
  repeat task.wait(0.1) until gotState or os.clock()>deadline
  loading:Destroy()
  if not gotState then notice('Lobby services unavailable. Reopen the menu to retry.');menuButton.Activated:Connect(function() send('Sync') end) end
- render();open(true)
+ render();open(false)
 end)
 task.spawn(function()
  while gui.Parent do

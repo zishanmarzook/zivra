@@ -43,6 +43,7 @@ function UI.setMenu(open,screen)
 	UI.menu=open; UI.overlay.Visible=open; UI.onMenu(open)
 	UI.touchLayer.Visible=not open and UIS.TouchEnabled and UI.state and UI.state.mode~="Lobby"
 	UI.reticle.Visible=not open and UI.state and UI.state.mode~="Lobby"
+	if open then UI.reloadTrack.Visible=false;UI.damageDirection.Visible=false end
 	TweenService:Create(UI.blur,TweenInfo.new(0.18),{Size=open and UI.settings.quality~="Low" and 14 or 0}):Play()
 	UI.weaponPanel.Visible=open and (screen==nil or screen=="Weapons")
 	UI.options.Visible=open and screen=="Settings"; UI.tasks.Visible=open and screen=="Tasks"
@@ -111,7 +112,11 @@ function UI.resize()
 	UI.subtitle.Visible=not phone
 	UI.tabBar.Position=UDim2.fromOffset(0,phone and 40 or 64); UI.tabBar.Size=UDim2.new(1,0,0,phone and 62 or 86)
 	for _,b in ipairs(UI.tabs) do b.Size=UDim2.fromOffset(phone and 62 or 86,phone and 62 or 86) end
-	UI.ammo.Position=UDim2.new(0.5,-150,1,-94); UI.ammo.Size=UDim2.fromOffset(300,24); UI.ammo.TextXAlignment=Enum.TextXAlignment.Center
+	UI.ammo.Position=phone and UDim2.new(0,16,0,140) or UDim2.new(0.5,-150,1,-94)
+ UI.health.Position=phone and UDim2.fromOffset(16,180) or UDim2.new(0,16,1,-42)
+ UI.ammo.Size=UDim2.fromOffset(300,24); UI.ammo.TextXAlignment=phone and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center
+ UI.reloadTrack.AnchorPoint=Vector2.new(phone and 0 or 0.5,0)
+ UI.reloadTrack.Position=phone and UDim2.new(0,16,0,168) or UDim2.new(0.5,0,1,-64)
 	UI.applyLayout()
 	UI.grid.Position=UDim2.fromOffset(0,phone and 112 or 162); UI.grid.Size=UDim2.new(1,0,1,phone and -176 or -226)
 end
@@ -143,7 +148,11 @@ function UI.init(send,onMenu,action)
 	UI.healthFill=make("Frame",UI.health,{Size=UDim2.fromScale(1,1),BackgroundColor3=T.Green,BorderSizePixel=0}); round(UI.healthFill,4)
 	UI.healthText=label(UI.health,"100",12,UDim2.fromOffset(8,0),UDim2.new(1,-16,1,0),T.Background); UI.healthText.Font=T.Bold
 	UI.ammo=label(UI.root,"",16,UDim2.new(1,-240,1,-42),UDim2.fromOffset(220,24)); UI.ammo.TextXAlignment=Enum.TextXAlignment.Right
-	UI.reticle=make("Frame",UI.root,{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(2,2),BackgroundColor3=T.Text,BorderSizePixel=0})
+	UI.reloadTrack=make("Frame",UI.root,{Name="ReloadProgress",AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,1,-64),Size=UDim2.fromOffset(160,3),BackgroundColor3=T.Line,BorderSizePixel=0,Visible=false})
+ UI.reloadFill=make("Frame",UI.reloadTrack,{Size=UDim2.fromScale(0,1),BackgroundColor3=T.Cyan,BorderSizePixel=0})
+ UI.damageDirection=make("Frame",UI.root,{Name="DamageDirection",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(180,180),BackgroundTransparency=1,Visible=false})
+ local arrow=label(UI.damageDirection,"^",26,UDim2.fromScale(0.5,0),UDim2.fromOffset(28,28),T.Red);arrow.AnchorPoint=Vector2.new(0.5,0);arrow.TextXAlignment=Enum.TextXAlignment.Center;arrow.Font=T.Bold
+ UI.reticle=make("Frame",UI.root,{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(2,2),BackgroundColor3=T.Text,BorderSizePixel=0})
 	UI.cross={}; for i=1,4 do UI.cross[i]=make("Frame",UI.reticle,{AnchorPoint=Vector2.new(0.5,0.5),Size=UDim2.fromOffset(i<=2 and 6 or 2,i<=2 and 2 or 6),BackgroundColor3=T.Text,BorderSizePixel=0}) end
 	UI.hit=label(UI.root,"X",26,UDim2.fromScale(0.5,0.5),UDim2.fromOffset(30,30)); UI.hit.AnchorPoint=Vector2.new(0.5,0.5); UI.hit.TextXAlignment=Enum.TextXAlignment.Center; UI.hit.Visible=false
 	UI.nav=make("Frame",UI.root,{AnchorPoint=Vector2.new(0.5,1),Position=UDim2.new(0.5,0,1,-68),Size=UDim2.new(0.94,0,0,40),BackgroundTransparency=1})
@@ -157,7 +166,7 @@ function UI.init(send,onMenu,action)
 	UI.inviteButton=button(UI.root,"INVITE",UDim2.fromOffset(16,44),UDim2.fromOffset(88,32),function() UI.setMenu(true,"Invites") end)
 	UI.resetButton=button(UI.root,"RESET RANGE",UDim2.fromOffset(112,44),UDim2.fromOffset(110,32),function() send("ResetRange") end)
 	UI.menuButton=button(UI.root,"LOADOUT",UDim2.new(1,-104,0,44),UDim2.fromOffset(88,32),function() UI.setMenu(not UI.menu) end)
-	UI.rangeStats=label(UI.root,"",11,UDim2.fromOffset(16,84),UDim2.fromOffset(280,36),T.Muted); UI.rangeStats.TextWrapped=true
+	UI.rangeStats=label(UI.root,"",11,UDim2.fromOffset(16,96),UDim2.fromOffset(280,36),T.Muted); UI.rangeStats.TextWrapped=true
 	UI.quickbar=make("Frame",UI.root,{AnchorPoint=Vector2.new(0.5,1),Position=UDim2.new(0.5,0,1,-12),Size=UDim2.new(0.44,0,0,42),BackgroundTransparency=1})
 	make("UIListLayout",UI.quickbar,{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,4)})
 	UI.quick={}
@@ -282,7 +291,9 @@ function UI.update(state)
 	UI.quickbar.Visible=state.mode~="Lobby"; UI.touchLayer.Visible=(UIS.TouchEnabled and state.mode~="Lobby" or UI.editing) and not UI.menu
 	local d=Weapons.ById[state.loadout[state.slot]]
 	UI.ammo.Text=d.name.."  "..(d.magazine and (state.ammo[d.id] or 0).." / "..(state.reserve[d.id] or 0) or d.charges and tostring(state.charges[d.id] or 0).." USES" or "")
-	if state.busy>0.3 then UI.ammo.Text..="  ..." end
+	if state.reloading then UI.ammo.Text..="  RELOADING" elseif state.busy>0.1 then UI.ammo.Text..="  READYING" end
+	UI.reloadTrack.Visible=state.reloading==true and state.mode~="Lobby" and not UI.menu
+	UI.reloadFill.Size=UDim2.fromScale(d.reload and math.clamp(1-state.busy/d.reload,0,1) or 0,1)
 	if d.heatPerShot then UI.ammo.Text..=string.format("  HEAT %d%%",state.heat*100) end
 	UI.ammo.TextColor3=d.magazine and (state.ammo[d.id] or 0)==0 and T.Red or T.Text
 	for i,b in ipairs(UI.quick) do b.Text=i.."  "..Weapons.ById[state.loadout[i]].name; b.UIStroke.Color=i==state.slot and T.Text or T.Line end
@@ -312,7 +323,17 @@ function UI.update(state)
 	if UI.menu and UI.weaponPanel.Visible and changed then UI.rebuild() end
 	if state.message then UI.notice(state.message) end
 end
+function UI.showDamage(from)
+ if typeof(from)~="Vector3" then return end
+ UI.damageFrom=from;UI.damageUntil=os.clock()+0.7
+end
 function UI.step(humanoid,spread)
+ UI.damageDirection.Visible=not UI.menu and UI.state and UI.state.mode~="Lobby" and os.clock()<(UI.damageUntil or 0) or false
+ if UI.damageDirection.Visible then
+  local cam=workspace.CurrentCamera
+  local direction=cam.CFrame:VectorToObjectSpace(UI.damageFrom-cam.CFrame.Position)
+  UI.damageDirection.Rotation=math.deg(math.atan2(direction.X,-direction.Z))
+ end
 	if humanoid then
 		local ratio=humanoid.Health/math.max(1,humanoid.MaxHealth)
 		UI.healthFill.Size=UI.healthFill.Size:Lerp(UDim2.fromScale(ratio,1),0.15)

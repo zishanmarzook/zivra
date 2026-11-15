@@ -46,3 +46,13 @@ Do not use the generic installer to overwrite this place. The original three-roo
 ## Subsequent Forge sample pass
 
 The owner explicitly authorized one unquoted generation after the earlier pricing blocker. The website independently showed 10,000 credits before and 7,826 afterward, an observed sample charge of 2,174. One original emblem was generated, published as approved Roblox Image `129565854362406`, installed in the headquarters header, and verified loaded on desktop and phone layout captures. Place version 40 contains this addition. No additional paid generation was started; the game icon and promotional artwork are still incomplete. This supersedes the earlier zero-generation ledger above; see `docs/FORGE_ASSETS.md` for exact IDs and evidence.
+
+## Combat feedback continuation — saved version 43
+
+Headquarters now starts with the menu closed after the loading flow, including hiding the shell during initialization. The Forge emblem still loads. Server snapshots expose a reloading flag derived from the reload epoch and active busy time; cancelling by switching/menu/reset naturally invalidates it. The HUD shows RELOADING and a native progress bar, with READYING for other short busy states. Phone health/ammo/reload status is grouped in the left status area above the native joystick; measured bounds confirmed no reload-bar overlap with the joystick or six custom action controls in iPhone 17 Pro landscape.
+
+A short native directional arrow uses the existing authoritative Hurt message's source position. Its display and direction were verified using a synthetic server feedback message with no actual damage applied. This is UI integration evidence, not a multiplayer damage test.
+
+Live checks passed startup closed state, server-backed reload feedback, clearing reload on switch, invalid fire payload rejection, lobby return, and clean Output. The source/snapshot compiler passes 48 scripts. Assertion totals are now 310 policy + 35 combat lifecycle + 16 persistence = 361; the three new checks cover reload-state start, completion and switch cancellation. Default viewport and Edit mode were restored. Recovery: `ServerStorage.ZIVRA_PreCombatFeedback_1794757756` contains the original edited roots, including the UI child.
+
+No paid Forge calls were made in this continuation; last verified remaining balance remains 7,826 credits. Physical multitouch, full portrait combat layout, real controller focus, multiplayer, persistence and 3D visual approval remain outside these checks. The selective updater now also includes the Combat module; it still targets the audited original baseline or an already-applied final source and refuses intermediate/custom changes rather than overwriting them.
