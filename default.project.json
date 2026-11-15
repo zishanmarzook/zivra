@@ -1,0 +1,9 @@
+{
+  "name": "ZIVRA",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": { "$ignoreUnknownInstances": true, "ZIVRA": { "$path": "src/shared" } },
+    "ServerScriptService": { "$ignoreUnknownInstances": true, "ZIVRA_Server": { "$path": "src/server" } },
+    "StarterPlayer": { "$ignoreUnknownInstances": true, "StarterPlayerScripts": { "$ignoreUnknownInstances": true, "ZIVRA_Client": { "$path": "src/client" } } }
+  }
+}
