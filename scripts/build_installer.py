@@ -12,7 +12,7 @@ groups={'shared':('ReplicatedStorage','ZIVRA','Folder'),
 entries=[]
 for group,(service,name,kind) in groups.items():
     files=[]
-    for path in sorted((root/'src'/group).glob('*.luau')):
+    for path in sorted((root/'src'/group).glob('*.luau'), key=lambda path: path.name):
         filename=path.name
         child='' if filename.startswith('init.') else path.stem
         files.append('{name='+quote(child)+',source='+quote(path.read_text(encoding="utf-8"))+'}')

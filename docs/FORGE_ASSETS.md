@@ -40,3 +40,9 @@ Integrated art into the headquarters Play page as a cropped background with a na
 Validation: Roblox PreloadAsync Success; ImageLabel.IsLoaded true. Desktop and iPhone 17 Pro landscape screenshots inspected. On the normal phone menu flow: menu open -> touch/backpack false; menu close -> both true. All inspected headquarters TextButtons were at least 44px high. Changing simulated device during an open menu showed inconsistent restoration and is not an approved use-case; physical touch remains untested. All 48 source/snapshot scripts compile; 361 existing assertions pass. One AssistantCommand diagnostic error occurred while looking for PlayerModule; no game-script errors observed in that playtest.
 
 Stopped Play and restored the default simulator viewport. Saved cloud place version 47; live experience not published. Recovery folder: `ServerStorage.ZIVRA_PreHQArtwork_1794758946`. Existing maps and core combat logic unchanged in this pass.
+
+
+## Final-allocation audit — 16 November 2026
+No paid calls made in this audit: the prior upgrade_url response requires paid calls to remain stopped under the Forge connector instructions. No new icon, thumbnail, or model is claimed. Last verified balance remains 5,822; not freshly verified in this audit. Existing two successful generations confirmed in MCP history.
+
+CI run 43899706465 passed compilation and 361 assertions but failed installer reproducibility. Cause: pathlib path ordering is case-insensitive on Windows and case-sensitive on Linux. Generator now sorts by the case-sensitive filename string on both systems; regenerated installer compiles. This generator was not executed in Studio. Local 48-file compilation and all 361 assertions were rerun successfully during this audit.

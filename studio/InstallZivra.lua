@@ -633,249 +633,6 @@ end
 return Held
 ]=]},
 {name=[=[
-]=],source=[=[
-local Players=game:GetService("Players")
-local RunService=game:GetService("RunService")
-local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
-local Rules=require(Shared.Rules)
-local Profiles=require(script.Profiles)
-local World=require(script.World)
-local Combat=require(script.Combat)
-local Projectiles=require(script.Projectiles)
-local Utility=require(script.Utility)
-assert(not Shared:FindFirstChild("Request"),"Duplicate ZIVRA combat runtime; remove duplicate installation")
-local request=Instance.new("RemoteEvent"); request.Name="Request"; request.Parent=Shared
-local feedback=Instance.new("RemoteEvent"); feedback.Name="Feedback"; feedback.Parent=Shared
-Combat.init(feedback,World,Profiles); Combat.Projectiles=Projectiles; Combat.Utility=Utility
-Projectiles.init(Combat); Utility.init(Combat)
-local function available(player)
-    if player:GetAttribute("ZIVRAInMatch") or player:GetAttribute("ZIVRATraining") then return false end
-    local hq=game.ServerScriptService:FindFirstChild("ZIVRAHQServices")
-    if hq then local party=require(hq.LobbyService).Core:Get(player.UserId); if party and party.state~="Idle" then return false end end
-    return true
-end
-local stashed={}
-local function tools(player)
-    local active=player:GetAttribute("ZIVRACombatMode")~="Lobby" and player:GetAttribute("ZIVRACombatMode")~=nil
-    if active then
-        local folder=stashed[player]
-        if not folder then folder=Instance.new("Folder");folder.Name="ZIVRA_Stashed_"..player.UserId;folder.Parent=game.ServerStorage;stashed[player]=folder end
-        local h=player.Character and player.Character:FindFirstChildOfClass("Humanoid");if h then h:UnequipTools() end
-        for _,container in {player.Backpack,player.Character} do if container then for _,item in container:GetChildren() do if item:IsA("Tool") then item.Parent=folder end end end end
-    elseif stashed[player] then
-        for _,item in stashed[player]:GetChildren() do item.Parent=player.Backpack end
-        stashed[player]:Destroy();stashed[player]=nil
-    end
-end
-local matches={}; local invitations={}; local arenaReady=0; local nextMatch=0; local connections={}; local shuttingDown=false
-local finishMatch
-local function lobby(player)
-	local s=Combat.States[player]; if not s then return end
-	if s.match then finishMatch(s.match,nil,"Duel ended") end
-	Combat.transition(player,"Lobby",World.LobbyCFrame)
-end
-local function enterRange(player)
-	local s=Combat.States[player]
-	if not s or s.mode~="Lobby" or not Combat.alive(player) or not available(player) then return end
-	Combat.transition(player,"Range",CFrame.new(World.Origin+Vector3.new(0,5,80)))
-end
-finishMatch=function(id,winner,message)
-	local match=matches[id]; if not match then return end
-	matches[id]=nil; arenaReady=os.clock()+2.2
-	for _,player in ipairs(match.players) do
-		local s=Combat.States[player]
-		if s then
-			s.match=nil
-			if winner then
-				local daily=Profiles.daily(s.profile); daily.duels+=1; s.profile.stats.duels+=1
-				if winner==player then daily.wins+=1; s.profile.stats.wins+=1; s.profile.currency+=25 end
-			end
-			Combat.cleanup(player); s.mode="Lobby"; s.epoch+=1; s.trigger=nil; s.grapple=nil
-			Combat.send(player,"Notice",message or (winner==player and "Duel won +25" or "Duel complete"))
-			task.delay(2,function()
-				if Combat.States[player]==s and s.mode=="Lobby" then
-					if Combat.alive(player) then Combat.transition(player,"Lobby",World.LobbyCFrame)
-					else player:LoadCharacterAsync() end
-				end
-			end)
-		end
-	end
-end
-Combat.onElimination=function(winner,victim)
-	local s=Combat.States[victim]
-	if s and s.match then finishMatch(s.match,winner) end
-end
-local function startDuel(first,second)
-	-- One physical arena: serialize matches until instanced arenas are introduced.
-	if next(matches) or os.clock()<arenaReady then return false end
-	local a,b=Combat.States[first],Combat.States[second]
-	if not available(first) or not available(second) then return false end
-	if not a or not b or a.mode~="Lobby" or b.mode~="Lobby" or not Combat.alive(first) or not Combat.alive(second) then return false end
-	nextMatch+=1; local id=nextMatch
-	matches[id]={players={first,second},expires=os.clock()+180}
-	for i,p in ipairs({first,second}) do
-		invitations[p]=nil
-		local cs=Combat.States[p]; cs.match=id; cs.eliminated=false
-		local position=World.ArenaOrigin+Vector3.new(0,5,i==1 and 60 or -60)
-		Combat.transition(p,"Duel",CFrame.lookAt(position,World.ArenaOrigin+Vector3.new(0,5,0)))
-		cs.busy=os.clock()+3; Combat.snapshot(p,"Duel starts in 3 seconds")
-	end
-	return true
-end
-local function queue(player)
-	local s=Combat.States[player]; if not s or s.mode~="Lobby" or not Combat.alive(player) then return end
-	s.queued=not s.queued; Combat.snapshot(player,s.queued and "Waiting for an opponent" or "Left queue")
-	if not s.queued then return end
-	for other,os in pairs(Combat.States) do
-		if other~=player and os.queued and os.mode=="Lobby" and Combat.alive(other) then startDuel(player,other); break end
-	end
-end
-World.build(enterRange,lobby,queue)
-local function characterAdded(player,character)
-	local h=character:WaitForChild("Humanoid",10); local root=character:WaitForChild("HumanoidRootPart",10)
-	if not h or not root then return end
-	local s=Combat.States[player]; if not s then return end
-	if s.match then finishMatch(s.match,nil,"Duel ended after respawn") end
-	s.eliminated=false
-	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
-    s.mode="Lobby";player:SetAttribute("ZIVRACombatMode","Lobby");tools(player);Combat.reset(player)
-    if connections[player] and connections[player].health then connections[player].health:Disconnect() end
-    local lastHealth=h.Health
-    connections[player].health=h.HealthChanged:Connect(function(value) if value<lastHealth then s.lastHit=os.clock() end;lastHealth=value end)
-    if connections[player] and connections[player].death then connections[player].death:Disconnect() end
-	local death=h.Died:Connect(function()
-		Combat.cleanup(player); s.epoch+=1; s.trigger=nil; s.blocking=false; s.grapple=nil
-		if s.match and not s.pendingElimination then finishMatch(s.match,nil,"Duel ended") end
-	end)
-	if connections[player] then connections[player].death=death else death:Disconnect() end
-end
-local function added(player)
-	local profile,offline=Profiles.load(player)
-	if not profile then return end
-	if not player.Parent then Profiles.save(player,true); return end
-	Combat.add(player,profile,offline); connections[player]={}
-    player:SetAttribute("ZIVRACombatMode","Lobby")
-    connections[player].mode=player:GetAttributeChangedSignal("ZIVRACombatMode"):Connect(function() tools(player) end)
-	connections[player].character=player.CharacterAdded:Connect(function(c) characterAdded(player,c) end)
-	if player.Character then task.spawn(characterAdded,player,player.Character) end
-	Combat.snapshot(player,offline)
-end
-Players.PlayerAdded:Connect(added)
-for _,player in ipairs(Players:GetPlayers()) do task.spawn(added,player) end
-Players.PlayerRemoving:Connect(function(player)
-	local s=Combat.States[player]
-	if s and s.match then finishMatch(s.match,nil,"Opponent disconnected; no win reward") end
-	Combat.cleanup(player); Combat.States[player]=nil; invitations[player]=nil
-	for target,invite in pairs(invitations) do if invite.from==player then invitations[target]=nil end end
-	if connections[player] then for _,c in pairs(connections[player]) do c:Disconnect() end; connections[player]=nil end
-	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
-	Profiles.save(player,true)
-end)
-local function settings(s,value)
-	if type(value)~="table" then return end
-	local p=s.profile.settings
-	if ({Low=true,Medium=true,High=true,Automatic=true})[value.quality] then p.quality=value.quality end
-	if type(value.reduceFlash)=="boolean" then p.reduceFlash=value.reduceFlash end
-	if Rules.finite(value.volume) then p.volume=math.clamp(value.volume,0,1) end
-	if Rules.finite(value.sensitivity) then p.sensitivity=math.clamp(value.sensitivity,0.2,2) end
-	-- Position and scale overrides are constrained to the action-button safe region.
-	if type(value.hud)=="table" then
-		p.hud={}
-		for _,id in ipairs({"Fire","Reload","Alt","Utility","Crouch","Sprint"}) do
-			local v=value.hud[id]
-			if ({Fire=true,Reload=true,Alt=true,Utility=true,Crouch=true,Sprint=true})[id] and type(v)=="table" and Rules.finite(v.x) and Rules.finite(v.y) and Rules.finite(v.size) then
-				p.hud[id]={x=math.clamp(v.x,0.52,0.94),y=math.clamp(v.y,0.2,0.75),size=math.clamp(v.size,44,88)}
-			end
-		end
-	end
-end
-request.OnServerEvent:Connect(function(player,action,value)
-	local s=Combat.States[player]
-	if not s or type(action)~="string" or not Rules.takeToken(s.bucket,os.clock(),36,50) then return end
-	if action=="Sync" then
-		if os.clock()>(s.nextSync or 0) then s.nextSync=os.clock()+1; Combat.snapshot(player) end
-	elseif action=="Fire" or action=="Release" or action=="Alt" or action=="Utility" then
-		local dir=Combat.direction(value); if not dir then return end
-		if action=="Alt" then Combat.alternate(player,dir)
-		elseif action=="Utility" then Utility.activate(player,dir)
-		else Combat.fire(player,dir,action=="Release") end
-	elseif action=="Trigger" then if type(value)=="boolean" then Combat.trigger(player,value) end
-	elseif action=="Reload" then Combat.reload(player)
-	elseif action=="Equip" then
-		if type(value)=="string" and #value<=40 and os.clock()>(s.nextEquip or 0) then s.nextEquip=os.clock()+0.15; Combat.equip(player,value) end
-	elseif action=="Menu" then
-		if type(value)=="boolean" then s.menu=value; s.trigger=nil; s.blocking=false; if value then s.epoch+=1 end end
-	elseif action=="Range" then enterRange(player)
-	elseif action=="Lobby" then if s.mode~="Lobby" then lobby(player) end
-	elseif action=="Queue" then if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+1; queue(player) end
-	elseif action=="Invite" then
-		if s.mode=="Lobby" and Rules.finite(value) and os.clock()>(s.nextInvite or 0) then
-			s.nextInvite=os.clock()+5
-			local target=Players:GetPlayerByUserId(value); local ts=target and Combat.States[target]
-			if ts and target~=player and ts.mode=="Lobby" and not ts.queued and not s.queued and not invitations[target] then
-				invitations[target]={from=player,expires=os.clock()+20}
-				Combat.send(target,"Invite",{userId=player.UserId,name=player.DisplayName,duration=20})
-				Combat.snapshot(player,"Duel invitation sent")
-			end
-		end
-	elseif action=="AcceptInvite" or action=="DeclineInvite" then
-		local invite=invitations[player]; invitations[player]=nil
-		if action=="AcceptInvite" and invite and invite.expires>os.clock() then
-			if not startDuel(invite.from,player) then Combat.snapshot(player,"Arena busy or invitation unavailable; use the duel queue") end
-		end
-	elseif action=="ResetRange" then
-		if s.mode=="Range" and os.clock()>(s.nextReset or 0) then s.nextReset=os.clock()+5; Combat.reset(player); s.rangeStats={shots=0,hits=0,damage=0,started=os.clock()} end
-	elseif action=="Sprint" then if type(value)=="boolean" then s.sprint=value; if value then s.crouch=false end end
-	elseif action=="Crouch" then
-		local alive,h,r=Combat.alive(player)
-		if alive and not s.menu and os.clock()>(s.nextSlide or 0) then
-			if s.sprint and h.MoveDirection.Magnitude>0.5 and h.FloorMaterial~=Enum.Material.Air then
-				s.slideUntil=os.clock()+0.55; s.slideDirection=h.MoveDirection.Unit; s.nextSlide=os.clock()+1.8; s.crouch=false; s.sprint=false
-				Combat.send(player,"Slide",{duration=0.55})
-			else s.crouch=not s.crouch; s.sprint=false end
-		end
-	elseif action=="Settings" then
-		if os.clock()>(s.nextSettings or 0) then s.nextSettings=os.clock()+0.3; settings(s,value); Combat.snapshot(player) end
-	elseif action=="Claim" then
-		local day=Profiles.daily(s.profile)
-		local goals={duels=3,kills=15,wins=2}
-		if type(value)=="string" and goals[value] and day[value]>=goals[value] and not day.claimed[value] then day.claimed[value]=true; s.profile.currency+=100; Combat.snapshot(player,"Task reward +100") end
-	end
-end)
-local snapshotTime=0; local worldTime=0
-RunService.Heartbeat:Connect(function(dt)
-	local now=os.clock(); Combat.step(dt,now); Projectiles.step(dt); Utility.step()
-	if now>worldTime then World.step(now); worldTime=now+0.05 end
-	if now>snapshotTime then
-		snapshotTime=now+0.3
-		for player in pairs(Combat.States) do Combat.snapshot(player) end
-		for id,m in pairs(matches) do if now>m.expires then finishMatch(id,nil,"Duel timed out") end end
-		for target,invite in pairs(invitations) do if now>invite.expires then invitations[target]=nil end end
-		if not next(matches) and now>=arenaReady then
-			local first
-			for p,s in pairs(Combat.States) do
-				if s.queued and s.mode=="Lobby" and Combat.alive(p) then
-					if first then startDuel(first,p); break else first=p end
-				end
-			end
-		end
-	end
-end)
-task.spawn(function()
-	while not shuttingDown do
-		task.wait(60)
-		for player in pairs(Profiles.Sessions) do task.spawn(Profiles.save,player,false) end
-	end
-end)
-game:BindToClose(function()
-	shuttingDown=true
-	local pending=0
-	for player in pairs(Profiles.Sessions) do pending+=1; task.spawn(function() Profiles.save(player,true); pending-=1 end) end
-	local deadline=os.clock()+25
-	while pending>0 and os.clock()<deadline do task.wait(0.1) end
-end)
-]=]},
-{name=[=[
 Profiles]=],source=[=[
 local DataStoreService=game:GetService("DataStoreService")
 local HttpService=game:GetService("HttpService")
@@ -1287,6 +1044,249 @@ function World.step(now)
 	end
 end
 return World
+]=]},
+{name=[=[
+]=],source=[=[
+local Players=game:GetService("Players")
+local RunService=game:GetService("RunService")
+local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
+local Rules=require(Shared.Rules)
+local Profiles=require(script.Profiles)
+local World=require(script.World)
+local Combat=require(script.Combat)
+local Projectiles=require(script.Projectiles)
+local Utility=require(script.Utility)
+assert(not Shared:FindFirstChild("Request"),"Duplicate ZIVRA combat runtime; remove duplicate installation")
+local request=Instance.new("RemoteEvent"); request.Name="Request"; request.Parent=Shared
+local feedback=Instance.new("RemoteEvent"); feedback.Name="Feedback"; feedback.Parent=Shared
+Combat.init(feedback,World,Profiles); Combat.Projectiles=Projectiles; Combat.Utility=Utility
+Projectiles.init(Combat); Utility.init(Combat)
+local function available(player)
+    if player:GetAttribute("ZIVRAInMatch") or player:GetAttribute("ZIVRATraining") then return false end
+    local hq=game.ServerScriptService:FindFirstChild("ZIVRAHQServices")
+    if hq then local party=require(hq.LobbyService).Core:Get(player.UserId); if party and party.state~="Idle" then return false end end
+    return true
+end
+local stashed={}
+local function tools(player)
+    local active=player:GetAttribute("ZIVRACombatMode")~="Lobby" and player:GetAttribute("ZIVRACombatMode")~=nil
+    if active then
+        local folder=stashed[player]
+        if not folder then folder=Instance.new("Folder");folder.Name="ZIVRA_Stashed_"..player.UserId;folder.Parent=game.ServerStorage;stashed[player]=folder end
+        local h=player.Character and player.Character:FindFirstChildOfClass("Humanoid");if h then h:UnequipTools() end
+        for _,container in {player.Backpack,player.Character} do if container then for _,item in container:GetChildren() do if item:IsA("Tool") then item.Parent=folder end end end end
+    elseif stashed[player] then
+        for _,item in stashed[player]:GetChildren() do item.Parent=player.Backpack end
+        stashed[player]:Destroy();stashed[player]=nil
+    end
+end
+local matches={}; local invitations={}; local arenaReady=0; local nextMatch=0; local connections={}; local shuttingDown=false
+local finishMatch
+local function lobby(player)
+	local s=Combat.States[player]; if not s then return end
+	if s.match then finishMatch(s.match,nil,"Duel ended") end
+	Combat.transition(player,"Lobby",World.LobbyCFrame)
+end
+local function enterRange(player)
+	local s=Combat.States[player]
+	if not s or s.mode~="Lobby" or not Combat.alive(player) or not available(player) then return end
+	Combat.transition(player,"Range",CFrame.new(World.Origin+Vector3.new(0,5,80)))
+end
+finishMatch=function(id,winner,message)
+	local match=matches[id]; if not match then return end
+	matches[id]=nil; arenaReady=os.clock()+2.2
+	for _,player in ipairs(match.players) do
+		local s=Combat.States[player]
+		if s then
+			s.match=nil
+			if winner then
+				local daily=Profiles.daily(s.profile); daily.duels+=1; s.profile.stats.duels+=1
+				if winner==player then daily.wins+=1; s.profile.stats.wins+=1; s.profile.currency+=25 end
+			end
+			Combat.cleanup(player); s.mode="Lobby"; s.epoch+=1; s.trigger=nil; s.grapple=nil
+			Combat.send(player,"Notice",message or (winner==player and "Duel won +25" or "Duel complete"))
+			task.delay(2,function()
+				if Combat.States[player]==s and s.mode=="Lobby" then
+					if Combat.alive(player) then Combat.transition(player,"Lobby",World.LobbyCFrame)
+					else player:LoadCharacterAsync() end
+				end
+			end)
+		end
+	end
+end
+Combat.onElimination=function(winner,victim)
+	local s=Combat.States[victim]
+	if s and s.match then finishMatch(s.match,winner) end
+end
+local function startDuel(first,second)
+	-- One physical arena: serialize matches until instanced arenas are introduced.
+	if next(matches) or os.clock()<arenaReady then return false end
+	local a,b=Combat.States[first],Combat.States[second]
+	if not available(first) or not available(second) then return false end
+	if not a or not b or a.mode~="Lobby" or b.mode~="Lobby" or not Combat.alive(first) or not Combat.alive(second) then return false end
+	nextMatch+=1; local id=nextMatch
+	matches[id]={players={first,second},expires=os.clock()+180}
+	for i,p in ipairs({first,second}) do
+		invitations[p]=nil
+		local cs=Combat.States[p]; cs.match=id; cs.eliminated=false
+		local position=World.ArenaOrigin+Vector3.new(0,5,i==1 and 60 or -60)
+		Combat.transition(p,"Duel",CFrame.lookAt(position,World.ArenaOrigin+Vector3.new(0,5,0)))
+		cs.busy=os.clock()+3; Combat.snapshot(p,"Duel starts in 3 seconds")
+	end
+	return true
+end
+local function queue(player)
+	local s=Combat.States[player]; if not s or s.mode~="Lobby" or not Combat.alive(player) then return end
+	s.queued=not s.queued; Combat.snapshot(player,s.queued and "Waiting for an opponent" or "Left queue")
+	if not s.queued then return end
+	for other,os in pairs(Combat.States) do
+		if other~=player and os.queued and os.mode=="Lobby" and Combat.alive(other) then startDuel(player,other); break end
+	end
+end
+World.build(enterRange,lobby,queue)
+local function characterAdded(player,character)
+	local h=character:WaitForChild("Humanoid",10); local root=character:WaitForChild("HumanoidRootPart",10)
+	if not h or not root then return end
+	local s=Combat.States[player]; if not s then return end
+	if s.match then finishMatch(s.match,nil,"Duel ended after respawn") end
+	s.eliminated=false
+	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
+    s.mode="Lobby";player:SetAttribute("ZIVRACombatMode","Lobby");tools(player);Combat.reset(player)
+    if connections[player] and connections[player].health then connections[player].health:Disconnect() end
+    local lastHealth=h.Health
+    connections[player].health=h.HealthChanged:Connect(function(value) if value<lastHealth then s.lastHit=os.clock() end;lastHealth=value end)
+    if connections[player] and connections[player].death then connections[player].death:Disconnect() end
+	local death=h.Died:Connect(function()
+		Combat.cleanup(player); s.epoch+=1; s.trigger=nil; s.blocking=false; s.grapple=nil
+		if s.match and not s.pendingElimination then finishMatch(s.match,nil,"Duel ended") end
+	end)
+	if connections[player] then connections[player].death=death else death:Disconnect() end
+end
+local function added(player)
+	local profile,offline=Profiles.load(player)
+	if not profile then return end
+	if not player.Parent then Profiles.save(player,true); return end
+	Combat.add(player,profile,offline); connections[player]={}
+    player:SetAttribute("ZIVRACombatMode","Lobby")
+    connections[player].mode=player:GetAttributeChangedSignal("ZIVRACombatMode"):Connect(function() tools(player) end)
+	connections[player].character=player.CharacterAdded:Connect(function(c) characterAdded(player,c) end)
+	if player.Character then task.spawn(characterAdded,player,player.Character) end
+	Combat.snapshot(player,offline)
+end
+Players.PlayerAdded:Connect(added)
+for _,player in ipairs(Players:GetPlayers()) do task.spawn(added,player) end
+Players.PlayerRemoving:Connect(function(player)
+	local s=Combat.States[player]
+	if s and s.match then finishMatch(s.match,nil,"Opponent disconnected; no win reward") end
+	Combat.cleanup(player); Combat.States[player]=nil; invitations[player]=nil
+	for target,invite in pairs(invitations) do if invite.from==player then invitations[target]=nil end end
+	if connections[player] then for _,c in pairs(connections[player]) do c:Disconnect() end; connections[player]=nil end
+	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
+	Profiles.save(player,true)
+end)
+local function settings(s,value)
+	if type(value)~="table" then return end
+	local p=s.profile.settings
+	if ({Low=true,Medium=true,High=true,Automatic=true})[value.quality] then p.quality=value.quality end
+	if type(value.reduceFlash)=="boolean" then p.reduceFlash=value.reduceFlash end
+	if Rules.finite(value.volume) then p.volume=math.clamp(value.volume,0,1) end
+	if Rules.finite(value.sensitivity) then p.sensitivity=math.clamp(value.sensitivity,0.2,2) end
+	-- Position and scale overrides are constrained to the action-button safe region.
+	if type(value.hud)=="table" then
+		p.hud={}
+		for _,id in ipairs({"Fire","Reload","Alt","Utility","Crouch","Sprint"}) do
+			local v=value.hud[id]
+			if ({Fire=true,Reload=true,Alt=true,Utility=true,Crouch=true,Sprint=true})[id] and type(v)=="table" and Rules.finite(v.x) and Rules.finite(v.y) and Rules.finite(v.size) then
+				p.hud[id]={x=math.clamp(v.x,0.52,0.94),y=math.clamp(v.y,0.2,0.75),size=math.clamp(v.size,44,88)}
+			end
+		end
+	end
+end
+request.OnServerEvent:Connect(function(player,action,value)
+	local s=Combat.States[player]
+	if not s or type(action)~="string" or not Rules.takeToken(s.bucket,os.clock(),36,50) then return end
+	if action=="Sync" then
+		if os.clock()>(s.nextSync or 0) then s.nextSync=os.clock()+1; Combat.snapshot(player) end
+	elseif action=="Fire" or action=="Release" or action=="Alt" or action=="Utility" then
+		local dir=Combat.direction(value); if not dir then return end
+		if action=="Alt" then Combat.alternate(player,dir)
+		elseif action=="Utility" then Utility.activate(player,dir)
+		else Combat.fire(player,dir,action=="Release") end
+	elseif action=="Trigger" then if type(value)=="boolean" then Combat.trigger(player,value) end
+	elseif action=="Reload" then Combat.reload(player)
+	elseif action=="Equip" then
+		if type(value)=="string" and #value<=40 and os.clock()>(s.nextEquip or 0) then s.nextEquip=os.clock()+0.15; Combat.equip(player,value) end
+	elseif action=="Menu" then
+		if type(value)=="boolean" then s.menu=value; s.trigger=nil; s.blocking=false; if value then s.epoch+=1 end end
+	elseif action=="Range" then enterRange(player)
+	elseif action=="Lobby" then if s.mode~="Lobby" then lobby(player) end
+	elseif action=="Queue" then if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+1; queue(player) end
+	elseif action=="Invite" then
+		if s.mode=="Lobby" and Rules.finite(value) and os.clock()>(s.nextInvite or 0) then
+			s.nextInvite=os.clock()+5
+			local target=Players:GetPlayerByUserId(value); local ts=target and Combat.States[target]
+			if ts and target~=player and ts.mode=="Lobby" and not ts.queued and not s.queued and not invitations[target] then
+				invitations[target]={from=player,expires=os.clock()+20}
+				Combat.send(target,"Invite",{userId=player.UserId,name=player.DisplayName,duration=20})
+				Combat.snapshot(player,"Duel invitation sent")
+			end
+		end
+	elseif action=="AcceptInvite" or action=="DeclineInvite" then
+		local invite=invitations[player]; invitations[player]=nil
+		if action=="AcceptInvite" and invite and invite.expires>os.clock() then
+			if not startDuel(invite.from,player) then Combat.snapshot(player,"Arena busy or invitation unavailable; use the duel queue") end
+		end
+	elseif action=="ResetRange" then
+		if s.mode=="Range" and os.clock()>(s.nextReset or 0) then s.nextReset=os.clock()+5; Combat.reset(player); s.rangeStats={shots=0,hits=0,damage=0,started=os.clock()} end
+	elseif action=="Sprint" then if type(value)=="boolean" then s.sprint=value; if value then s.crouch=false end end
+	elseif action=="Crouch" then
+		local alive,h,r=Combat.alive(player)
+		if alive and not s.menu and os.clock()>(s.nextSlide or 0) then
+			if s.sprint and h.MoveDirection.Magnitude>0.5 and h.FloorMaterial~=Enum.Material.Air then
+				s.slideUntil=os.clock()+0.55; s.slideDirection=h.MoveDirection.Unit; s.nextSlide=os.clock()+1.8; s.crouch=false; s.sprint=false
+				Combat.send(player,"Slide",{duration=0.55})
+			else s.crouch=not s.crouch; s.sprint=false end
+		end
+	elseif action=="Settings" then
+		if os.clock()>(s.nextSettings or 0) then s.nextSettings=os.clock()+0.3; settings(s,value); Combat.snapshot(player) end
+	elseif action=="Claim" then
+		local day=Profiles.daily(s.profile)
+		local goals={duels=3,kills=15,wins=2}
+		if type(value)=="string" and goals[value] and day[value]>=goals[value] and not day.claimed[value] then day.claimed[value]=true; s.profile.currency+=100; Combat.snapshot(player,"Task reward +100") end
+	end
+end)
+local snapshotTime=0; local worldTime=0
+RunService.Heartbeat:Connect(function(dt)
+	local now=os.clock(); Combat.step(dt,now); Projectiles.step(dt); Utility.step()
+	if now>worldTime then World.step(now); worldTime=now+0.05 end
+	if now>snapshotTime then
+		snapshotTime=now+0.3
+		for player in pairs(Combat.States) do Combat.snapshot(player) end
+		for id,m in pairs(matches) do if now>m.expires then finishMatch(id,nil,"Duel timed out") end end
+		for target,invite in pairs(invitations) do if now>invite.expires then invitations[target]=nil end end
+		if not next(matches) and now>=arenaReady then
+			local first
+			for p,s in pairs(Combat.States) do
+				if s.queued and s.mode=="Lobby" and Combat.alive(p) then
+					if first then startDuel(first,p); break else first=p end
+				end
+			end
+		end
+	end
+end)
+task.spawn(function()
+	while not shuttingDown do
+		task.wait(60)
+		for player in pairs(Profiles.Sessions) do task.spawn(Profiles.save,player,false) end
+	end
+end)
+game:BindToClose(function()
+	shuttingDown=true
+	local pending=0
+	for player in pairs(Profiles.Sessions) do pending+=1; task.spawn(function() Profiles.save(player,true); pending-=1 end) end
+	local deadline=os.clock()+25
+	while pending>0 and os.clock()<deadline do task.wait(0.1) end
+end)
 ]=]}}},
 {service=[=[
 StarterPlayerScripts]=],name=[=[
@@ -1374,225 +1374,6 @@ function Effects.audio(def,event,position)
 	sound:Play(); Debris:AddItem(carrier,5)
 end
 return Effects
-]=]},
-{name=[=[
-]=],source=[=[
-local Players=game:GetService("Players")
-local UIS=game:GetService("UserInputService")
-local CAS=game:GetService("ContextActionService")
-local RunService=game:GetService("RunService")
-local GuiService=game:GetService("GuiService")
-local player=Players.LocalPlayer
-local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
-local request=Shared:WaitForChild("Request")
-local feedback=Shared:WaitForChild("Feedback")
-local Weapons=require(Shared.Weapons)
-local UI=require(script.UI)
-local Effects=require(script.Effects)
-local VM=require(script.Viewmodel)
-local state,held,fireTouch,chargeStart
-local cameraRecoil=CFrame.identity
-local nextFire=0; local burstToken=0; local sprint=false; local aim=false
-local originalCameraMode=player.CameraMode
-local originalFOV=workspace.CurrentCamera.FieldOfView
-local originalSensitivity=UIS.MouseDeltaSensitivity
-local function send(action,value) request:FireServer(action,value) end
-local function direction()
-	local cam=workspace.CurrentCamera; local size=cam.ViewportSize
-	return cam:ViewportPointToRay(size.X/2,size.Y/2).Direction.Unit
-end
-local function stop()
-	held=false; fireTouch=nil; chargeStart=nil; VM.charge=0; VM.firing=false; burstToken+=1; send("Trigger",false)
-end
-local function usable()
-	local h=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	return state and state.mode~="Lobby" and not UI.menu and not UI.editing and not GuiService.MenuIsOpen and not UIS:GetFocusedTextBox() and h and h.Health>0
-end
-local function predict(d)
-	VM.fire()
-	if d.magazine then Effects.pulse((workspace.CurrentCamera.CFrame*CFrame.new(0.4,-0.25,-2)).Position,Color3.fromRGB(255,190,80),0.25,0.05) end
-end
-local function shoot()
-	if not usable() then return end
-	local d=Weapons.ById[state.loadout[state.slot]]
-	if d.magazine and (state.ammo[d.id] or 0)<=0 then return end
-	send("Fire",direction()); predict(d); nextFire=os.clock()+d.interval
-end
-local function fire(on,input)
-	if on then
-		if not usable() or held then return end
-		held=true; fireTouch=input and input.UserInputType==Enum.UserInputType.Touch and input or nil
-		VM.firing=true; chargeStart=os.clock(); send("Trigger",true)
-		local d=Weapons.ById[state.loadout[state.slot]]
-		if d.kind=="charge" then return end
-		if d.kind=="burst" then
-			burstToken+=1; local token=burstToken
-			task.spawn(function()
-				for _=1,3 do
-					if token~=burstToken or not usable() then break end
-					shoot(); task.wait(d.interval+0.01)
-				end
-			end)
-		elseif not d.spinup then shoot() end
-	else
-		if held and usable() then
-			local d=Weapons.ById[state.loadout[state.slot]]
-			if d.kind=="charge" then send("Release",direction()); predict(d) end
-		end
-		held=false; fireTouch=nil; chargeStart=nil; VM.charge=0; VM.firing=false; send("Trigger",false)
-	end
-end
-local function action(name,on,input)
-	if name=="Fire" then fire(on,input); return end
-	if not usable() then return end
-	if name=="Alt" then
-		local d=Weapons.ById[state.loadout[state.slot]]
-		if d.slash or d.shield or d.warp or d.charge or d.kind=="satchel" or d.kind=="grapple" then
-			if on then send("Alt",direction()); if d.charge then stop() end end
-		else aim=on; VM.aim=on end
-	elseif on and name=="Reload" then stop(); send("Reload")
-	elseif on and name=="Utility" then send("Utility",direction())
-	elseif on and name=="Crouch" then send("Crouch")
-	elseif name=="Sprint" then
-		if UIS.TouchEnabled then if on then sprint=not sprint; send("Sprint",sprint) end
-		else sprint=on; send("Sprint",on) end
-	end
-end
-local nativeMenuState
-local function nativeControls(open)
- local touchGui=player.PlayerGui:FindFirstChild("TouchGui")
- if open and not nativeMenuState then
-  nativeMenuState={backpack=game:GetService("StarterGui"):GetCoreGuiEnabled(Enum.CoreGuiType.Backpack),touch=touchGui and touchGui.Enabled}
-  game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,false)
-  if touchGui then touchGui.Enabled=false end
- elseif not open and nativeMenuState then
-  game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,nativeMenuState.backpack)
-  if touchGui and nativeMenuState.touch~=nil then touchGui.Enabled=nativeMenuState.touch end
-  nativeMenuState=nil
- end
-end
-UI.init(send,function(open)
- nativeControls(open)
-    if UI.gui then UI.gui.Enabled=open or (state and state.mode~="Lobby") or false end
-	stop(); aim=false; VM.aim=false; send("Menu",open)
-	UIS.MouseBehavior=open and Enum.MouseBehavior.Default or (state and state.mode~="Lobby" and Enum.MouseBehavior.LockCenter or Enum.MouseBehavior.Default)
-	player:SetAttribute("ZIVRACombatMenu",open)
-    if open then workspace.CurrentCamera.FieldOfView=originalFOV end
-end,action)
--- Modal text button releases first-person mouse lock while menus are open.
-UI.equip.Modal=true
-UI.gui.Enabled=false
-local opener=Instance.new("BindableEvent");opener.Name="ZIVRA_OpenLoadout";opener.Parent=player.PlayerScripts
-opener.Event:Connect(function() UI.setMenu(true,"Weapons") end)
-local settingsOpener=Instance.new("BindableEvent");settingsOpener.Name="ZIVRA_OpenSettings";settingsOpener.Parent=player.PlayerScripts
-settingsOpener.Event:Connect(function() UI.setMenu(true,"Settings") end)
-local mapping={Fire={Enum.UserInputType.MouseButton1,Enum.KeyCode.ButtonR2},Alt={Enum.UserInputType.MouseButton2,Enum.KeyCode.ButtonL2},
-	Reload={Enum.KeyCode.R,Enum.KeyCode.ButtonX},Utility={Enum.KeyCode.G,Enum.KeyCode.ButtonR1},
-	Crouch={Enum.KeyCode.C,Enum.KeyCode.LeftControl,Enum.KeyCode.ButtonB},Sprint={Enum.KeyCode.LeftShift,Enum.KeyCode.ButtonL3}}
-for name,keys in pairs(mapping) do
-	CAS:BindAction("ZIVRACombat_"..name,function(_,inputState,input)
-		if UIS:GetFocusedTextBox() or UI.menu or UI.editing or not state or state.mode=="Lobby" then return Enum.ContextActionResult.Pass end
-		if inputState==Enum.UserInputState.Begin then action(name,true,input)
-		elseif inputState==Enum.UserInputState.End or inputState==Enum.UserInputState.Cancel then action(name,false,input) end
-		return Enum.ContextActionResult.Sink
-	end,false,table.unpack(keys))
-end
-CAS:BindAction("ZIVRACombat_Menu",function(_,inputState)
-	if UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
-	if inputState==Enum.UserInputState.Begin then UI.setMenu(not UI.menu) end
-	return Enum.ContextActionResult.Sink
-end,false,Enum.KeyCode.B,Enum.KeyCode.ButtonY)
-CAS:BindAction("ZIVRACombat_Back",function(_,inputState)
- if not UI.menu then return Enum.ContextActionResult.Pass end
- if inputState==Enum.UserInputState.Begin then UI.setMenu(false) end
- return Enum.ContextActionResult.Sink
-end,false,Enum.KeyCode.ButtonB)
-for i,key in ipairs({Enum.KeyCode.One,Enum.KeyCode.Two,Enum.KeyCode.Three,Enum.KeyCode.Four}) do
-	CAS:BindAction("ZIVRACombat_Slot"..i,function(_,inputState)
-		if not usable() then return Enum.ContextActionResult.Pass end
-		if inputState==Enum.UserInputState.Begin then stop(); send("Equip",state.loadout[i]) end
-		return Enum.ContextActionResult.Sink
-	end,false,key,({Enum.KeyCode.DPadUp,Enum.KeyCode.DPadRight,Enum.KeyCode.DPadDown,Enum.KeyCode.DPadLeft})[i])
-end
-CAS:BindAction("ZIVRACombat_Inspect",function(_,inputState)
-	if not usable() then return Enum.ContextActionResult.Pass end
-	if inputState==Enum.UserInputState.Begin then VM.inspectUntil=os.clock()+1.4 end
-	return Enum.ContextActionResult.Sink
-end,false,Enum.KeyCode.F,Enum.KeyCode.ButtonL1)
-UIS.TouchMoved:Connect(function(input)
-	if input~=fireTouch or not held or UI.menu then return end
-	local delta=input.Delta; local cam=workspace.CurrentCamera
-	local pitch,yaw=cam.CFrame:ToOrientation(); local sensitivity=(UI.settings.sensitivity or 1)*0.004
-	pitch=math.clamp(pitch-delta.Y*sensitivity,-1.4,1.4); yaw-=delta.X*sensitivity
-	cam.CFrame=CFrame.new(cam.CFrame.Position)*CFrame.fromOrientation(pitch,yaw,0)
-end)
-UIS.WindowFocusReleased:Connect(function() stop(); sprint=false; aim=false; VM.aim=false; send("Sprint",false) end)
-player.CharacterAdded:Connect(function() stop(); VM.reloadStart=nil; aim=false; UI.setMenu(false) end)
-feedback.OnClientEvent:Connect(function(kind,data)
-	if kind=="State" then
-		if state and state.mode~=data.mode and UI.menu then UI.setMenu(false) end
-		local changed=not state or state.slot~=data.slot or state.loadout[data.slot]~=data.loadout[data.slot] or state.mode~=data.mode
-		if changed then stop(); VM.reloadStart=nil; aim=false; VM.aim=false end
-		state=data; UI.update(data)
-        UI.gui.Enabled=data.mode~="Lobby" or UI.menu
-        UI.nav.Visible=false
-        UI.inviteButton.Visible=false
-        UI.health.Visible=data.mode~="Lobby";UI.ammo.Visible=data.mode~="Lobby"
-        UI.top.Visible=data.mode~="Lobby";UI.currency.Visible=data.mode~="Lobby"
-        UI.menuButton.Visible=data.mode~="Lobby"
-        if data.mode~="Lobby" or UI.menu then UI.gui.Enabled=true end
-		VM.equip(data.loadout[data.slot]); VM.visible=data.mode~="Lobby"
-		if data.mode~="Lobby" then player.CameraMode=Enum.CameraMode.LockFirstPerson end
-		UIS.MouseDeltaSensitivity=originalSensitivity*(data.settings.sensitivity or 1)
-		Effects.quality=data.settings.quality; Effects.volume=data.settings.volume
-	elseif kind=="Effect" then Effects.play(data.kind,data.data)
-	elseif kind=="Fired" then
-		local d=Weapons.ById[data.id]
-		Effects.audio(d,"fire",workspace.CurrentCamera.CFrame.Position)
-		if d.slot==4 or data.slash then VM.fire() end
-	elseif kind=="Hit" then UI.hitUntil=os.clock()+0.13; UI.hit.TextColor3=data.headshot and Color3.fromRGB(255,211,38) or Color3.new(1,1,1)
-	elseif kind=="Reload" then VM.reload(data.duration)
-	elseif kind=="Healing" then VM.reload(data.duration); UI.notice("Healing - taking damage interrupts")
-	elseif kind=="Hurt" then
-		UI.showDamage(data.from)
-		UI.healthText.TextColor3=Color3.fromRGB(255,65,75)
-		task.delay(0.15,function() UI.healthText.TextColor3=Color3.fromRGB(16,17,22) end)
-	elseif kind=="Flash" then UI.flashScreen(data.intensity,data.duration)
-	elseif kind=="Distort" then UI.flashScreen(0.15,data.duration)
-	elseif kind=="Slide" then VM.landing=0.2
-	elseif kind=="Invite" then
-		UI.inviteText.Text=data.name.." invited you to a duel."; UI.invitationUntil=os.clock()+data.duration
-		UI.notice("Duel invitation from "..data.name.." - open INVITE")
-	elseif kind=="Notice" then UI.notice(data) end
-end)
-GuiService.MenuOpened:Connect(function() stop(); send("Menu",true) end)
-GuiService.MenuClosed:Connect(function() send("Menu",UI.menu) end)
-RunService:BindToRenderStep("ZIVRA_RemoveRecoil",Enum.RenderPriority.Camera.Value-1,function()
-	workspace.CurrentCamera.CFrame*=cameraRecoil:Inverse(); cameraRecoil=CFrame.identity
-end)
-RunService:BindToRenderStep("ZIVRA_Viewmodel",Enum.RenderPriority.Camera.Value+1,function(dt)
-	local h=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	if held and usable() then
-		local d=Weapons.ById[state.loadout[state.slot]]
-		if d.charge then VM.charge=math.clamp((os.clock()-(chargeStart or os.clock()))/d.charge,0,1)
-		elseif d.kind=="auto" or d.automatic or d.continuous or d.kind=="flame" then
-			if os.clock()>=nextFire and (not d.spinup or os.clock()-(chargeStart or os.clock())>=d.spinup) then shoot() end
-		end
-	end
-	local cam=workspace.CurrentCamera
-	if state and state.mode~="Lobby" then cam.FieldOfView+=( (aim and not UI.menu and originalFOV-12 or originalFOV)-cam.FieldOfView)*math.min(1,dt*12) end
-	cameraRecoil=usable() and CFrame.Angles(VM.kick*0.12,0,0) or CFrame.identity
-	cam.CFrame*=cameraRecoil
-	VM.step(dt,h,UI.menu)
-	local d=state and Weapons.ById[state.loadout[state.slot]]
-	local spread=5+(d and d.spread or 0)+VM.kick*30+(h and h.MoveDirection.Magnitude*3 or 0)
-	if aim then spread*=0.65 end
-	if d and d.charge then spread=10-VM.charge*7 end
-	UI.step(h,spread)
-end)
-send("Sync")
--- Loading a profile may finish after client bootstrap.
-task.spawn(function() while not state do task.wait(2); send("Sync") end end)
 ]=]},
 {name=[=[
 UI]=],source=[=[
@@ -2005,6 +1786,225 @@ function Viewmodel.step(dt,humanoid,menu)
 	end
 end
 return Viewmodel
+]=]},
+{name=[=[
+]=],source=[=[
+local Players=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local CAS=game:GetService("ContextActionService")
+local RunService=game:GetService("RunService")
+local GuiService=game:GetService("GuiService")
+local player=Players.LocalPlayer
+local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
+local request=Shared:WaitForChild("Request")
+local feedback=Shared:WaitForChild("Feedback")
+local Weapons=require(Shared.Weapons)
+local UI=require(script.UI)
+local Effects=require(script.Effects)
+local VM=require(script.Viewmodel)
+local state,held,fireTouch,chargeStart
+local cameraRecoil=CFrame.identity
+local nextFire=0; local burstToken=0; local sprint=false; local aim=false
+local originalCameraMode=player.CameraMode
+local originalFOV=workspace.CurrentCamera.FieldOfView
+local originalSensitivity=UIS.MouseDeltaSensitivity
+local function send(action,value) request:FireServer(action,value) end
+local function direction()
+	local cam=workspace.CurrentCamera; local size=cam.ViewportSize
+	return cam:ViewportPointToRay(size.X/2,size.Y/2).Direction.Unit
+end
+local function stop()
+	held=false; fireTouch=nil; chargeStart=nil; VM.charge=0; VM.firing=false; burstToken+=1; send("Trigger",false)
+end
+local function usable()
+	local h=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	return state and state.mode~="Lobby" and not UI.menu and not UI.editing and not GuiService.MenuIsOpen and not UIS:GetFocusedTextBox() and h and h.Health>0
+end
+local function predict(d)
+	VM.fire()
+	if d.magazine then Effects.pulse((workspace.CurrentCamera.CFrame*CFrame.new(0.4,-0.25,-2)).Position,Color3.fromRGB(255,190,80),0.25,0.05) end
+end
+local function shoot()
+	if not usable() then return end
+	local d=Weapons.ById[state.loadout[state.slot]]
+	if d.magazine and (state.ammo[d.id] or 0)<=0 then return end
+	send("Fire",direction()); predict(d); nextFire=os.clock()+d.interval
+end
+local function fire(on,input)
+	if on then
+		if not usable() or held then return end
+		held=true; fireTouch=input and input.UserInputType==Enum.UserInputType.Touch and input or nil
+		VM.firing=true; chargeStart=os.clock(); send("Trigger",true)
+		local d=Weapons.ById[state.loadout[state.slot]]
+		if d.kind=="charge" then return end
+		if d.kind=="burst" then
+			burstToken+=1; local token=burstToken
+			task.spawn(function()
+				for _=1,3 do
+					if token~=burstToken or not usable() then break end
+					shoot(); task.wait(d.interval+0.01)
+				end
+			end)
+		elseif not d.spinup then shoot() end
+	else
+		if held and usable() then
+			local d=Weapons.ById[state.loadout[state.slot]]
+			if d.kind=="charge" then send("Release",direction()); predict(d) end
+		end
+		held=false; fireTouch=nil; chargeStart=nil; VM.charge=0; VM.firing=false; send("Trigger",false)
+	end
+end
+local function action(name,on,input)
+	if name=="Fire" then fire(on,input); return end
+	if not usable() then return end
+	if name=="Alt" then
+		local d=Weapons.ById[state.loadout[state.slot]]
+		if d.slash or d.shield or d.warp or d.charge or d.kind=="satchel" or d.kind=="grapple" then
+			if on then send("Alt",direction()); if d.charge then stop() end end
+		else aim=on; VM.aim=on end
+	elseif on and name=="Reload" then stop(); send("Reload")
+	elseif on and name=="Utility" then send("Utility",direction())
+	elseif on and name=="Crouch" then send("Crouch")
+	elseif name=="Sprint" then
+		if UIS.TouchEnabled then if on then sprint=not sprint; send("Sprint",sprint) end
+		else sprint=on; send("Sprint",on) end
+	end
+end
+local nativeMenuState
+local function nativeControls(open)
+ local touchGui=player.PlayerGui:FindFirstChild("TouchGui")
+ if open and not nativeMenuState then
+  nativeMenuState={backpack=game:GetService("StarterGui"):GetCoreGuiEnabled(Enum.CoreGuiType.Backpack),touch=touchGui and touchGui.Enabled}
+  game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,false)
+  if touchGui then touchGui.Enabled=false end
+ elseif not open and nativeMenuState then
+  game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,nativeMenuState.backpack)
+  if touchGui and nativeMenuState.touch~=nil then touchGui.Enabled=nativeMenuState.touch end
+  nativeMenuState=nil
+ end
+end
+UI.init(send,function(open)
+ nativeControls(open)
+    if UI.gui then UI.gui.Enabled=open or (state and state.mode~="Lobby") or false end
+	stop(); aim=false; VM.aim=false; send("Menu",open)
+	UIS.MouseBehavior=open and Enum.MouseBehavior.Default or (state and state.mode~="Lobby" and Enum.MouseBehavior.LockCenter or Enum.MouseBehavior.Default)
+	player:SetAttribute("ZIVRACombatMenu",open)
+    if open then workspace.CurrentCamera.FieldOfView=originalFOV end
+end,action)
+-- Modal text button releases first-person mouse lock while menus are open.
+UI.equip.Modal=true
+UI.gui.Enabled=false
+local opener=Instance.new("BindableEvent");opener.Name="ZIVRA_OpenLoadout";opener.Parent=player.PlayerScripts
+opener.Event:Connect(function() UI.setMenu(true,"Weapons") end)
+local settingsOpener=Instance.new("BindableEvent");settingsOpener.Name="ZIVRA_OpenSettings";settingsOpener.Parent=player.PlayerScripts
+settingsOpener.Event:Connect(function() UI.setMenu(true,"Settings") end)
+local mapping={Fire={Enum.UserInputType.MouseButton1,Enum.KeyCode.ButtonR2},Alt={Enum.UserInputType.MouseButton2,Enum.KeyCode.ButtonL2},
+	Reload={Enum.KeyCode.R,Enum.KeyCode.ButtonX},Utility={Enum.KeyCode.G,Enum.KeyCode.ButtonR1},
+	Crouch={Enum.KeyCode.C,Enum.KeyCode.LeftControl,Enum.KeyCode.ButtonB},Sprint={Enum.KeyCode.LeftShift,Enum.KeyCode.ButtonL3}}
+for name,keys in pairs(mapping) do
+	CAS:BindAction("ZIVRACombat_"..name,function(_,inputState,input)
+		if UIS:GetFocusedTextBox() or UI.menu or UI.editing or not state or state.mode=="Lobby" then return Enum.ContextActionResult.Pass end
+		if inputState==Enum.UserInputState.Begin then action(name,true,input)
+		elseif inputState==Enum.UserInputState.End or inputState==Enum.UserInputState.Cancel then action(name,false,input) end
+		return Enum.ContextActionResult.Sink
+	end,false,table.unpack(keys))
+end
+CAS:BindAction("ZIVRACombat_Menu",function(_,inputState)
+	if UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
+	if inputState==Enum.UserInputState.Begin then UI.setMenu(not UI.menu) end
+	return Enum.ContextActionResult.Sink
+end,false,Enum.KeyCode.B,Enum.KeyCode.ButtonY)
+CAS:BindAction("ZIVRACombat_Back",function(_,inputState)
+ if not UI.menu then return Enum.ContextActionResult.Pass end
+ if inputState==Enum.UserInputState.Begin then UI.setMenu(false) end
+ return Enum.ContextActionResult.Sink
+end,false,Enum.KeyCode.ButtonB)
+for i,key in ipairs({Enum.KeyCode.One,Enum.KeyCode.Two,Enum.KeyCode.Three,Enum.KeyCode.Four}) do
+	CAS:BindAction("ZIVRACombat_Slot"..i,function(_,inputState)
+		if not usable() then return Enum.ContextActionResult.Pass end
+		if inputState==Enum.UserInputState.Begin then stop(); send("Equip",state.loadout[i]) end
+		return Enum.ContextActionResult.Sink
+	end,false,key,({Enum.KeyCode.DPadUp,Enum.KeyCode.DPadRight,Enum.KeyCode.DPadDown,Enum.KeyCode.DPadLeft})[i])
+end
+CAS:BindAction("ZIVRACombat_Inspect",function(_,inputState)
+	if not usable() then return Enum.ContextActionResult.Pass end
+	if inputState==Enum.UserInputState.Begin then VM.inspectUntil=os.clock()+1.4 end
+	return Enum.ContextActionResult.Sink
+end,false,Enum.KeyCode.F,Enum.KeyCode.ButtonL1)
+UIS.TouchMoved:Connect(function(input)
+	if input~=fireTouch or not held or UI.menu then return end
+	local delta=input.Delta; local cam=workspace.CurrentCamera
+	local pitch,yaw=cam.CFrame:ToOrientation(); local sensitivity=(UI.settings.sensitivity or 1)*0.004
+	pitch=math.clamp(pitch-delta.Y*sensitivity,-1.4,1.4); yaw-=delta.X*sensitivity
+	cam.CFrame=CFrame.new(cam.CFrame.Position)*CFrame.fromOrientation(pitch,yaw,0)
+end)
+UIS.WindowFocusReleased:Connect(function() stop(); sprint=false; aim=false; VM.aim=false; send("Sprint",false) end)
+player.CharacterAdded:Connect(function() stop(); VM.reloadStart=nil; aim=false; UI.setMenu(false) end)
+feedback.OnClientEvent:Connect(function(kind,data)
+	if kind=="State" then
+		if state and state.mode~=data.mode and UI.menu then UI.setMenu(false) end
+		local changed=not state or state.slot~=data.slot or state.loadout[data.slot]~=data.loadout[data.slot] or state.mode~=data.mode
+		if changed then stop(); VM.reloadStart=nil; aim=false; VM.aim=false end
+		state=data; UI.update(data)
+        UI.gui.Enabled=data.mode~="Lobby" or UI.menu
+        UI.nav.Visible=false
+        UI.inviteButton.Visible=false
+        UI.health.Visible=data.mode~="Lobby";UI.ammo.Visible=data.mode~="Lobby"
+        UI.top.Visible=data.mode~="Lobby";UI.currency.Visible=data.mode~="Lobby"
+        UI.menuButton.Visible=data.mode~="Lobby"
+        if data.mode~="Lobby" or UI.menu then UI.gui.Enabled=true end
+		VM.equip(data.loadout[data.slot]); VM.visible=data.mode~="Lobby"
+		if data.mode~="Lobby" then player.CameraMode=Enum.CameraMode.LockFirstPerson end
+		UIS.MouseDeltaSensitivity=originalSensitivity*(data.settings.sensitivity or 1)
+		Effects.quality=data.settings.quality; Effects.volume=data.settings.volume
+	elseif kind=="Effect" then Effects.play(data.kind,data.data)
+	elseif kind=="Fired" then
+		local d=Weapons.ById[data.id]
+		Effects.audio(d,"fire",workspace.CurrentCamera.CFrame.Position)
+		if d.slot==4 or data.slash then VM.fire() end
+	elseif kind=="Hit" then UI.hitUntil=os.clock()+0.13; UI.hit.TextColor3=data.headshot and Color3.fromRGB(255,211,38) or Color3.new(1,1,1)
+	elseif kind=="Reload" then VM.reload(data.duration)
+	elseif kind=="Healing" then VM.reload(data.duration); UI.notice("Healing - taking damage interrupts")
+	elseif kind=="Hurt" then
+		UI.showDamage(data.from)
+		UI.healthText.TextColor3=Color3.fromRGB(255,65,75)
+		task.delay(0.15,function() UI.healthText.TextColor3=Color3.fromRGB(16,17,22) end)
+	elseif kind=="Flash" then UI.flashScreen(data.intensity,data.duration)
+	elseif kind=="Distort" then UI.flashScreen(0.15,data.duration)
+	elseif kind=="Slide" then VM.landing=0.2
+	elseif kind=="Invite" then
+		UI.inviteText.Text=data.name.." invited you to a duel."; UI.invitationUntil=os.clock()+data.duration
+		UI.notice("Duel invitation from "..data.name.." - open INVITE")
+	elseif kind=="Notice" then UI.notice(data) end
+end)
+GuiService.MenuOpened:Connect(function() stop(); send("Menu",true) end)
+GuiService.MenuClosed:Connect(function() send("Menu",UI.menu) end)
+RunService:BindToRenderStep("ZIVRA_RemoveRecoil",Enum.RenderPriority.Camera.Value-1,function()
+	workspace.CurrentCamera.CFrame*=cameraRecoil:Inverse(); cameraRecoil=CFrame.identity
+end)
+RunService:BindToRenderStep("ZIVRA_Viewmodel",Enum.RenderPriority.Camera.Value+1,function(dt)
+	local h=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if held and usable() then
+		local d=Weapons.ById[state.loadout[state.slot]]
+		if d.charge then VM.charge=math.clamp((os.clock()-(chargeStart or os.clock()))/d.charge,0,1)
+		elseif d.kind=="auto" or d.automatic or d.continuous or d.kind=="flame" then
+			if os.clock()>=nextFire and (not d.spinup or os.clock()-(chargeStart or os.clock())>=d.spinup) then shoot() end
+		end
+	end
+	local cam=workspace.CurrentCamera
+	if state and state.mode~="Lobby" then cam.FieldOfView+=( (aim and not UI.menu and originalFOV-12 or originalFOV)-cam.FieldOfView)*math.min(1,dt*12) end
+	cameraRecoil=usable() and CFrame.Angles(VM.kick*0.12,0,0) or CFrame.identity
+	cam.CFrame*=cameraRecoil
+	VM.step(dt,h,UI.menu)
+	local d=state and Weapons.ById[state.loadout[state.slot]]
+	local spread=5+(d and d.spread or 0)+VM.kick*30+(h and h.MoveDirection.Magnitude*3 or 0)
+	if aim then spread*=0.65 end
+	if d and d.charge then spread=10-VM.charge*7 end
+	UI.step(h,spread)
+end)
+send("Sync")
+-- Loading a profile may finish after client bootstrap.
+task.spawn(function() while not state do task.wait(2); send("Sync") end end)
 ]=]}}}
 }
 local destinations={
