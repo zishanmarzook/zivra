@@ -9,6 +9,7 @@ function U.Text(parent,text,size,pos,fontSize,color)
  local t=Instance.new('TextLabel');t.Size=size;t.Position=pos or UDim2.new();t.BackgroundTransparency=1;t.Text=text;t.TextColor3=color or U.Colors.Text;t.TextSize=fontSize or 15;t.Font=Enum.Font.Gotham;t.TextXAlignment=Enum.TextXAlignment.Left;t.TextYAlignment=Enum.TextYAlignment.Center;t.TextWrapped=true;t.Parent=parent;return t
 end
 function U.Button(parent,text,size,pos,callback,primary)
+ if size.Y.Scale==0 and size.Y.Offset<44 then size=UDim2.new(size.X.Scale,size.X.Offset,0,44) end
  local b=Instance.new('TextButton');b.Name=text;b.Text=text;b.Size=size;b.Position=pos or UDim2.new();b.BackgroundColor3=primary and U.Colors.Accent or U.Colors.Raised;b.BorderSizePixel=0;b.TextColor3=U.Colors.Text;b.Font=Enum.Font.GothamBold;b.TextSize=14;b.TextWrapped=true;b.AutoButtonColor=false;b.Selectable=true;b.Parent=parent
  local corner=Instance.new('UICorner');corner.CornerRadius=UDim.new(0,T.Radius);corner.Parent=b
  local outline=Instance.new('UIStroke');outline.Color=U.Colors.Cyan;outline.Transparency=1;outline.Parent=b

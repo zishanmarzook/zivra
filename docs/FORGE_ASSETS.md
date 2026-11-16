@@ -23,3 +23,20 @@ Publication completed: ready, moderation approved. Roblox Image asset ID: `12956
 Integrated into `StarterPlayer.StarterPlayerScripts.ZIVRAHQClient` as `ZIVRAHeadquarters.Header.ZIVRAEmblem`. Header text remains native. Desktop and iPhone 17 Pro landscape screenshots were inspected; the symbol remained proportional and legible. `ContentProvider:PreloadAsync` returned Success and `ImageLabel.IsLoaded` was true. Studio Output was clean. Restored default viewport and Edit mode; saved place version 40. The live experience was not published.
 
 Recovery: `ServerStorage.ZIVRA_Recovery_20261115.ZIVRAHQClient_PreForgeEmblem`. No further generation was started after the 2,174-credit balance decrease. Remaining 7,826 credits includes the untouched 2,000-credit reserve.
+
+
+## Headquarters artwork pass — 16 November 2026
+
+Owner explicitly approved spending up to all 7,826 remaining credits on additional unpriced ZIVRA artwork/audio, releasing the previous reserve. One thumbnail generation completed:
+
+- Job `2bd0efc7-91e8-4bcf-9306-5ba246dc98d8`, request `zivra-hq-keyart-20261115-01`, one provider execution.
+- Artifact `mcp-artifact:2bd0efc7-91e8-4bcf-9306-5ba246dc98d8:0`.
+- Roblox Image `78032110481735`, publication `c5919eb1-aceb-46d6-a471-af7c982af83e`, ready and moderation approved, creator `3516965067`.
+- Website balance decreased from 7,826 to 5,822: observed charge 2,004 credits. Total observed spend including emblem: 4,178 credits.
+- Audio request `zivra-rifle-shot-20261115-01` was refused with `paid_generation_required` and an upgrade URL. No audio job ID or output was created. Per Forge connector instructions, all further paid calls stopped. Website still showed 5,822 credits; do not describe that balance as zero or claim all credits were consumed.
+
+Integrated art into the headquarters Play page as a cropped background with a native text shade. Match controls stay above artwork, including on phone. Added minimum 44px headquarters buttons, respected ReducedMotion for menu entry, and hid/restored native backpack/touch UI around the headquarters menu. A watcher handles touch GUI creation/enabling while the menu is open.
+
+Validation: Roblox PreloadAsync Success; ImageLabel.IsLoaded true. Desktop and iPhone 17 Pro landscape screenshots inspected. On the normal phone menu flow: menu open -> touch/backpack false; menu close -> both true. All inspected headquarters TextButtons were at least 44px high. Changing simulated device during an open menu showed inconsistent restoration and is not an approved use-case; physical touch remains untested. All 48 source/snapshot scripts compile; 361 existing assertions pass. One AssistantCommand diagnostic error occurred while looking for PlayerModule; no game-script errors observed in that playtest.
+
+Stopped Play and restored the default simulator viewport. Saved cloud place version 47; live experience not published. Recovery folder: `ServerStorage.ZIVRA_PreHQArtwork_1794758946`. Existing maps and core combat logic unchanged in this pass.

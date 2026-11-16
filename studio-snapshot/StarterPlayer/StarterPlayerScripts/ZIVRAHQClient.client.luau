@@ -36,14 +36,43 @@ local function notice(text)
 end
 local state=nil;local page='Play';local selectedMode='Duel';local opened=false;local list=nil;local previewConnection=nil;local render;local navButtons={}
 local function send(action,value) Remote:FireServer(action,value) end
+local nativeMenuState
+local function nativeControls(value)
+ local touch=p.PlayerGui:FindFirstChild('TouchGui')
+ local core=game:GetService('StarterGui')
+ if value and not nativeMenuState then
+  nativeMenuState={backpack=core:GetCoreGuiEnabled(Enum.CoreGuiType.Backpack),touch=touch and touch.Enabled,touchDevice=UIS.TouchEnabled}
+  core:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,false)
+  if touch then touch.Enabled=false end
+ elseif not value and nativeMenuState then
+  core:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,nativeMenuState.backpack)
+  if touch then
+   if UIS.TouchEnabled~=nativeMenuState.touchDevice then touch.Enabled=UIS.TouchEnabled
+   elseif nativeMenuState.touch~=nil then touch.Enabled=nativeMenuState.touch end
+  end
+  nativeMenuState=nil
+ end
+end
+-- PlayerModule can enable or recreate touch controls after a menu opens.
+local function watchTouch(touch)
+ if touch.Name~='TouchGui' or not touch:IsA('ScreenGui') then return end
+ local function keepModal()
+  if opened and nativeMenuState and touch.Enabled then
+   nativeMenuState.touch=true;touch.Enabled=false
+  end
+ end
+ touch:GetPropertyChangedSignal('Enabled'):Connect(keepModal);keepModal()
+end
+for _,child in p.PlayerGui:GetChildren() do watchTouch(child) end
+p.PlayerGui.ChildAdded:Connect(watchTouch)
 local function open(value)
  if p:GetAttribute('ZIVRACombatMenu') or (p:GetAttribute('ZIVRACombatMode') and p:GetAttribute('ZIVRACombatMode')~='Lobby') then value=false end
- opened=value;shell.Visible=value
+ opened=value;shell.Visible=value;nativeControls(value)
  p.CameraMode=Enum.CameraMode.LockFirstPerson
  UIS.MouseBehavior=value and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCenter
  if value then
   local top=shell:GetAttribute('Top') or 82
-  shell.Position=UDim2.fromOffset(16,top+8);Tween:Create(shell,TweenInfo.new(0.16,Enum.EasingStyle.Quad),{Position=UDim2.fromOffset(16,top)}):Play()
+  if state and state.profile.Settings.ReducedMotion then shell.Position=UDim2.fromOffset(16,top) else shell.Position=UDim2.fromOffset(16,top+8);Tween:Create(shell,TweenInfo.new(0.16,Enum.EasingStyle.Quad),{Position=UDim2.fromOffset(16,top)}):Play() end
   if UIS.GamepadEnabled then GuiService.SelectedObject=navButtons[page] end
  else GuiService.SelectedObject=nil end
 end
@@ -56,6 +85,18 @@ local function paragraph(text,height)
 end
 local function action(text,callback,primary)
  return U.Button(list,text,UDim2.new(1,0,0,44),nil,callback,primary)
+end
+local function headquartersHero()
+ local compact=workspace.CurrentCamera.ViewportSize.Y<550
+ local hero=row(compact and 100 or 158);hero.Name='HeadquartersHero';hero.ClipsDescendants=true;hero.BackgroundColor3=U.Colors.Raised
+ -- ForgeGUI key art, generation 2bd0efc7-91e8-4bcf-9306-5ba246dc98d8.
+ local art=Instance.new('ImageLabel');art.Name='HeadquartersArtwork';art.BackgroundTransparency=1;art.Image='rbxassetid://78032110481735';art.ScaleType=Enum.ScaleType.Crop;art.Size=UDim2.fromScale(1,1);art.Parent=hero
+ local shade=U.Frame(hero,'TextShade',UDim2.fromScale(1,1),nil,U.Colors.BG)
+ local fade=Instance.new('UIGradient');fade.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.05),NumberSequenceKeypoint.new(0.55,0.35),NumberSequenceKeypoint.new(1,1)});fade.Parent=shade
+ local stripe=U.Frame(hero,'Accent',UDim2.new(0,3,1,-28),UDim2.fromOffset(0,14),U.Colors.Cyan)
+ local eyebrow=U.Text(hero,'ZIVRA / OPERATIONS',UDim2.new(0.68,-24,0,20),UDim2.fromOffset(16,compact and 10 or 24),10,U.Colors.Cyan)
+ local title=U.Text(hero,'READY FOR THE NEXT ROUND',UDim2.new(0.68,-24,0,compact and 45 or 58),UDim2.fromOffset(16,compact and 29 or 48),compact and 15 or 24);title.Font=Enum.Font.GothamBold
+ if not compact then U.Text(hero,'Build your loadout. Train your aim. Queue with your squad.',UDim2.new(0.68,-24,0,32),UDim2.fromOffset(16,110),12,U.Colors.Muted) end
 end
 local function showParty()
  local party=state and state.party;if not party then paragraph('Loading party state...');return end
@@ -106,6 +147,7 @@ render=function()
   local quick=row(54)
   U.Button(quick,'READY / NOT READY',UDim2.new(0.49,0,1,-10),UDim2.fromOffset(5,5),function() send('Ready') end)
   U.Button(quick,state and state.party.status=='Searching' and 'CANCEL QUEUE' or 'FIND MATCH',UDim2.new(0.49,-5,1,-10),UDim2.new(0.51,0,0,5),function() send(state and state.party.status=='Searching' and 'Cancel' or 'Queue') end,true)
+  headquartersHero()
   paragraph('Selected: '..(modes[selectedMode] and modes[selectedMode].Name or selectedMode)..'  /  '..(state and state.party.status or 'Connecting')..'\nReady and party controls: FRIENDS. Available maps: Tileyard + Gridlock.',60)
   for _,mode in Config.Modes do
    local f=row(88)
@@ -173,7 +215,7 @@ local function layout()
  local top=mobile and 60 or 82;shell:SetAttribute('Top',top);shell.Position=UDim2.fromOffset(16,top);shell.Size=UDim2.new(1,-32,1,mobile and -124 or -158)
  header.Size=UDim2.new(1,-32,0,mobile and 42 or 58);brand.TextSize=mobile and 18 or 23;status.Position=UDim2.fromOffset(mobile and 54 or 64,mobile and 25 or 33);status.TextSize=mobile and 9 or 11
  nav.Size=UDim2.new(0,navWidth,1,0);content.Position=UDim2.fromOffset(navWidth+16,mobile and 40 or 55);content.Size=UDim2.new(1,-navWidth-30,1,mobile and -48 or -66);heading.Position=UDim2.fromOffset(navWidth+16,8)
- for i,name in {'Play','Loadout','Career','Missions','Friends','Leaderboards','Settings','Training'} do local b=navButtons[name];b.Size=UDim2.new(1,-12,0,42);b.Position=UDim2.fromOffset(6,8+(i-1)*48);b.TextSize=mobile and 11 or 13 end
+ for i,name in {'Play','Loadout','Career','Missions','Friends','Leaderboards','Settings','Training'} do local b=navButtons[name];b.Size=UDim2.new(1,-12,0,44);b.Position=UDim2.fromOffset(6,8+(i-1)*48);b.TextSize=mobile and 11 or 13 end
  emblem.Size=UDim2.fromOffset(mobile and 36 or 48,mobile and 36 or 48);emblem.Position=UDim2.fromOffset(8,mobile and 3 or 5);brand.Position=UDim2.fromOffset(mobile and 54 or 64,3)
  avatar.Visible=not mobile;identity.Visible=not mobile;level.Visible=not mobile
 end
