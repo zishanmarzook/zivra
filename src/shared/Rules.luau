@@ -10,6 +10,9 @@ function Rules.falloff(def,distance)
 	local t=math.clamp((distance-start)/math.max(1,def.range-start),0,1)
 	return 1-t*(1-(def.minDamageScale or 1))
 end
+function Rules.hitDamage(def,distance,headshot)
+	return def.damage*Rules.falloff(def,distance)*(headshot and (def.headshot or 1) or 1)
+end
 function Rules.attack(state,def,now)
 	if not state.alive or state.menu or state.mode=="Lobby" then return false,"Combat unavailable" end
 	if now<state.busy or now<state.nextShot then return false,"Recovering" end

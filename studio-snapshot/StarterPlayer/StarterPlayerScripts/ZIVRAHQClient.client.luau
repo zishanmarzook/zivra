@@ -5,6 +5,9 @@ local Tween=game:GetService('TweenService')
 local Run=game:GetService('RunService')
 local GuiService=game:GetService('GuiService')
 local p=Players.LocalPlayer
+local combatShared=game.ReplicatedStorage:WaitForChild('ZIVRA')
+local launch=require(combatShared.Config).Launch1v1
+local pages=launch and {'Play','Loadout','Settings'} or {'Play','Loadout','Career','Missions','Friends','Leaderboards','Settings','Training'}
 local Shared=game.ReplicatedStorage:WaitForChild('ZIVRAHQ')
 local Config=require(Shared.Config);local U=require(Shared.UIComponents);local Remote=Shared.Request
 local modes={};for _,v in Config.Modes do modes[v.Id]=v end
@@ -96,7 +99,7 @@ local function headquartersHero()
  local stripe=U.Frame(hero,'Accent',UDim2.new(0,3,1,-28),UDim2.fromOffset(0,14),U.Colors.Cyan)
  local eyebrow=U.Text(hero,'ZIVRA / OPERATIONS',UDim2.new(0.68,-24,0,20),UDim2.fromOffset(16,compact and 10 or 24),10,U.Colors.Cyan)
  local title=U.Text(hero,'READY FOR THE NEXT ROUND',UDim2.new(0.68,-24,0,compact and 45 or 58),UDim2.fromOffset(16,compact and 29 or 48),compact and 15 or 24);title.Font=Enum.Font.GothamBold
- if not compact then U.Text(hero,'Build your loadout. Train your aim. Queue with your squad.',UDim2.new(0.68,-24,0,32),UDim2.fromOffset(16,110),12,U.Colors.Muted) end
+ if not compact then U.Text(hero,'ONE ARENA. TWO PLAYERS. ONE WINNER.',UDim2.new(0.68,-24,0,32),UDim2.fromOffset(16,110),12,U.Colors.Muted) end
 end
 local function showParty()
  local party=state and state.party;if not party then paragraph('Loading party state...');return end
@@ -143,7 +146,22 @@ render=function()
  if previewConnection then previewConnection:Disconnect();previewConnection=nil end
  for _,v in content:GetChildren() do v:Destroy() end;list=U.List(content);heading.Text=string.upper(page)
  for name,b in pairs(navButtons) do b.BackgroundColor3=name==page and U.Colors.Accent or U.Colors.Panel end
- if page=='Play' then
+ if launch and page=='Play' then
+  headquartersHero()
+  local queued=p:GetAttribute('ZIVRAQueued')==true
+  action(queued and 'CANCEL QUEUE' or 'PLAY 1V1',function()
+   local request=combatShared:FindFirstChild('Request')
+   if p:GetAttribute('ZIVRAReady') and request then request:FireServer('Queue')
+   else notice('Connecting to 1V1 services') end
+  end,true)
+  if queued then paragraph('Waiting for an opponent',44) end
+ elseif launch and page=='Loadout' then
+  action('OPEN LOADOUT',function()
+   open(false)
+   local event=p.PlayerScripts:FindFirstChild('ZIVRA_OpenLoadout')
+   if event then event:Fire() end
+  end,true)
+ elseif page=='Play' then
   local quick=row(54)
   U.Button(quick,'READY / NOT READY',UDim2.new(0.49,0,1,-10),UDim2.fromOffset(5,5),function() send('Ready') end)
   U.Button(quick,state and state.party.status=='Searching' and 'CANCEL QUEUE' or 'FIND MATCH',UDim2.new(0.49,-5,1,-10),UDim2.new(0.51,0,0,5),function() send(state and state.party.status=='Searching' and 'Cancel' or 'Queue') end,true)
@@ -205,7 +223,7 @@ render=function()
   paragraph('M / gamepad Y: menu. Shift: sprint. C/Ctrl: slide. Space: jump.\nNo lobby music is loaded; audio controls are hidden.',70)
  end
 end
-for i,name in {'Play','Loadout','Career','Missions','Friends','Leaderboards','Settings','Training'} do
+for i,name in pages do
  local b=U.Button(nav,string.upper(name),UDim2.new(1,-16,0,42),UDim2.fromOffset(8,12+(i-1)*48),function() page=name;render() end)
  navButtons[name]=b
 end
@@ -215,9 +233,9 @@ local function layout()
  local top=mobile and 60 or 82;shell:SetAttribute('Top',top);shell.Position=UDim2.fromOffset(16,top);shell.Size=UDim2.new(1,-32,1,mobile and -124 or -158)
  header.Size=UDim2.new(1,-32,0,mobile and 42 or 58);brand.TextSize=mobile and 18 or 23;status.Position=UDim2.fromOffset(mobile and 54 or 64,mobile and 25 or 33);status.TextSize=mobile and 9 or 11
  nav.Size=UDim2.new(0,navWidth,1,0);content.Position=UDim2.fromOffset(navWidth+16,mobile and 40 or 55);content.Size=UDim2.new(1,-navWidth-30,1,mobile and -48 or -66);heading.Position=UDim2.fromOffset(navWidth+16,8)
- for i,name in {'Play','Loadout','Career','Missions','Friends','Leaderboards','Settings','Training'} do local b=navButtons[name];b.Size=UDim2.new(1,-12,0,44);b.Position=UDim2.fromOffset(6,8+(i-1)*48);b.TextSize=mobile and 11 or 13 end
+ for i,name in pages do local b=navButtons[name];b.Size=UDim2.new(1,-12,0,44);b.Position=UDim2.fromOffset(6,8+(i-1)*48);b.TextSize=mobile and 11 or 13 end
  emblem.Size=UDim2.fromOffset(mobile and 36 or 48,mobile and 36 or 48);emblem.Position=UDim2.fromOffset(8,mobile and 3 or 5);brand.Position=UDim2.fromOffset(mobile and 54 or 64,3)
- avatar.Visible=not mobile;identity.Visible=not mobile;level.Visible=not mobile
+ avatar.Visible=not mobile;identity.Visible=not mobile;level.Visible=not mobile and not launch
 end
 workspace.CurrentCamera:GetPropertyChangedSignal('ViewportSize'):Connect(layout);layout()
 CAS:BindActionAtPriority('ZIVRA_Menu',function(_,input)
@@ -239,13 +257,14 @@ Remote.OnClientEvent:Connect(function(kind,data)
   if state and data.revision<=state.revision then return end
   state=data;gotState=true;selectedMode=data.party.mode
   local settings=data.profile.Settings
+  p:SetAttribute('ZIVRAReducedMotion',settings.ReducedMotion)
   local movement=require(game.ReplicatedStorage.ZIVRAMovement.Config)
   movement.MotionScale=settings.ReducedMotion and 0 or 1
   movement.BaseFOV=settings.FOV;movement.SprintFOV=settings.FOV+7;movement.AutoSprint=settings.AutoSprint
   p:SetAttribute('ZIVRASettingAutoSprint',settings.AutoSprint)
   if p:GetAttribute('ZIVRAAppliedFOV')~=settings.FOV then workspace.CurrentCamera.FieldOfView=settings.FOV;p:SetAttribute('ZIVRAAppliedFOV',settings.FOV) end
   level.Text='LV '..data.profile.Level..'  /  SESSION XP '..data.profile.XP
-  status.Text=data.party.status=='InMatch' and 'MATCH ASSIGNED' or data.training and 'TRAINING / LIVE FIRE' or 'HEADQUARTERS / '..data.party.status:upper()
+  if not launch then status.Text=data.party.status=='InMatch' and 'MATCH ASSIGNED' or data.training and 'TRAINING / LIVE FIRE' or 'HEADQUARTERS / '..data.party.status:upper() end
   if opened and page~='Loadout' then render() end
  elseif kind=='Notice' then notice(data)
  elseif kind=='Open' then page=data.page or 'Play';selectedMode=data.mode or selectedMode;render();open(true)
@@ -268,7 +287,10 @@ task.spawn(function()
 end)
 task.spawn(function()
  while gui.Parent do
-  if state then
+  if launch then
+   local queued=p:GetAttribute('ZIVRAQueued')
+   foot.Text=queued and 'WAITING FOR AN OPPONENT' or 'VERTEX YARD  /  1V1'
+  elseif state then
    local party=state.party;local elapsed=party.queuedAt and math.max(0,math.floor(workspace:GetServerTimeNow()-party.queuedAt)) or 0
    foot.Text=(modes[party.mode] and modes[party.mode].Name or party.mode)..'  /  '..#party.members..' IN PARTY  /  '..party.status..(party.status=='Searching' and ' '..elapsed..'s' or '')
   end
@@ -284,3 +306,12 @@ end
 p:GetAttributeChangedSignal("ZIVRACombatMode"):Connect(combatVisibility)
 p:GetAttributeChangedSignal("ZIVRACombatMenu"):Connect(combatVisibility)
 combatVisibility()
+
+if launch then
+ p:GetAttributeChangedSignal('ZIVRAQueued'):Connect(function()
+  local queued=p:GetAttribute('ZIVRAQueued')
+  foot.Text=queued and 'WAITING FOR AN OPPONENT' or 'VERTEX YARD  /  1V1'
+  status.Text=queued and 'MATCHMAKING' or 'HEADQUARTERS'
+  if opened and page=='Play' then render() end
+ end)
+end

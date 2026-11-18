@@ -78,7 +78,7 @@ function UI.rebuild()
 	random.BackgroundColor3=Color3.fromRGB(10,11,15); random.LayoutOrder=0
 	label(random,"/  /",30,UDim2.fromScale(0.15,0.12),UDim2.fromScale(0.7,0.45),T.Muted).TextXAlignment=Enum.TextXAlignment.Center
 	for order,d in ipairs(Weapons.List) do
-		if d.slot==UI.category then
+		if d.slot==UI.category and (Weapons.Launch[d.id] or UI.state and UI.state.mode=='Range') then
 			local b=button(UI.grid,"",UDim2.new(),UDim2.new(),function() UI.choose(d.id) end); b.LayoutOrder=order
 			if d.rarity=="Signature" then b.UIStroke.Color=T.Gold end
 			viewport(b,d,UDim2.fromScale(0,-0.03),UDim2.fromScale(1,0.78))
@@ -277,6 +277,25 @@ function UI.init(send,onMenu,action)
 	button(UI.invites,"DECLINE",UDim2.new(0.5,4,0,100),UDim2.new(0.5,-24,0,36),function() send("DeclineInvite"); UI.invitationUntil=0; UI.setMenu(false) end)
 	UI.playerList=make("ScrollingFrame",UI.invites,{Position=UDim2.fromOffset(20,148),Size=UDim2.new(1,-40,1,-164),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=3})
 	make("UIListLayout",UI.playerList,{Padding=UDim.new(0,8)})
+	UI.matchScore=label(UI.root,"",14,UDim2.fromScale(0,0),UDim2.new(1,0,0,34),T.Text)
+	UI.matchScore.Name="DuelScore"
+	UI.matchScore.TextXAlignment=Enum.TextXAlignment.Center
+	UI.matchScore.Font=T.Bold
+	UI.matchScore.Visible=false
+	UI.matchCard=make("Frame",UI.root,{Name="DuelCard",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.48),Size=UDim2.new(0.88,0,0,176),BackgroundColor3=T.Surface,BorderSizePixel=0,Visible=false,ZIndex=5})
+	make("UISizeConstraint",UI.matchCard,{MaxSize=Vector2.new(470,176)})
+	round(UI.matchCard)
+	stroke(UI.matchCard)
+	UI.matchTitle=label(UI.matchCard,"",26,UDim2.fromOffset(16,10),UDim2.new(1,-32,0,42),T.Text)
+	UI.matchDetail=label(UI.matchCard,"",14,UDim2.fromOffset(16,53),UDim2.new(1,-32,0,60),T.Muted)
+	UI.matchDetail.TextWrapped=true
+	for _, item in ipairs({UI.matchTitle,UI.matchDetail}) do
+		item.ZIndex=6
+		item.TextXAlignment=Enum.TextXAlignment.Center
+	end
+	UI.rematchButton=button(UI.matchCard,"REMATCH",UDim2.new(0,12,1,-56),UDim2.new(0.5,-18,0,44),function() send("Rematch") end)
+	UI.resultLobby=button(UI.matchCard,"RETURN TO LOBBY",UDim2.new(0.5,6,1,-56),UDim2.new(0.5,-18,0,44),function() send("Lobby") end)
+	for _, item in ipairs({UI.rematchButton,UI.resultLobby}) do item.ZIndex=6;item.Modal=true end
 	UI.flash=make("Frame",UI.root,{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.fromRGB(130,143,158),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=50})
 	UI.root:GetPropertyChangedSignal("AbsoluteSize"):Connect(UI.resize)
 	UI.grid:GetPropertyChangedSignal("AbsoluteSize"):Connect(UI.resize)
@@ -284,11 +303,15 @@ function UI.init(send,onMenu,action)
 end
 function UI.update(state)
 	local old=UI.state; UI.state=state; UI.settings=state.settings
+	local duel=state.duel
+	local active=not duel or duel.phase=="Active"
+	UI.matchScore.Visible=duel~=nil
+	UI.matchCard.Visible=duel~=nil and not active and not UI.menu
 	UI.top.Text="ZIVRA  /  "..state.mode:upper()..(state.queued and " / QUEUED" or "")
 	UI.currency.Text=tostring(state.currency).." CREDITS"..(state.offline and " / UNSAVED" or "")
-	UI.inviteButton.Visible=state.mode=="Lobby"; UI.nav.Visible=state.mode=="Lobby"; UI.returnButton.Visible=state.mode~="Lobby"; UI.resetButton.Visible=state.mode=="Range"
-	UI.rangeStats.Visible=state.mode=="Range"; UI.reticle.Visible=state.mode~="Lobby" and not UI.menu
-	UI.quickbar.Visible=state.mode~="Lobby"; UI.touchLayer.Visible=(UIS.TouchEnabled and state.mode~="Lobby" or UI.editing) and not UI.menu
+	UI.inviteButton.Visible=state.mode=="Lobby"; UI.nav.Visible=state.mode=="Lobby"; UI.returnButton.Visible=state.mode~="Lobby" and active; UI.resetButton.Visible=state.mode=="Range"
+	UI.rangeStats.Visible=state.mode=="Range"; UI.reticle.Visible=state.mode~="Lobby" and active and not UI.menu
+	UI.quickbar.Visible=state.mode~="Lobby" and active; UI.touchLayer.Visible=(UIS.TouchEnabled and state.mode~="Lobby" and active or UI.editing) and not UI.menu
 	local d=Weapons.ById[state.loadout[state.slot]]
 	UI.ammo.Text=d.name.."  "..(d.magazine and (state.ammo[d.id] or 0).." / "..(state.reserve[d.id] or 0) or d.charges and tostring(state.charges[d.id] or 0).." USES" or "")
 	if state.reloading then UI.ammo.Text..="  RELOADING" elseif state.busy>0.1 then UI.ammo.Text..="  READYING" end
@@ -321,13 +344,39 @@ function UI.update(state)
 	local changed=not old or old.mode~=state.mode
 	if old then for i=1,4 do if old.loadout[i]~=state.loadout[i] then changed=true end end end
 	if UI.menu and UI.weaponPanel.Visible and changed then UI.rebuild() end
-	if state.message then UI.notice(state.message) end
+	if state.message then
+        UI.notice(state.message)
+        if state.message=="Elimination +10" then UI.hitUntil=os.clock()+0.4;UI.hit.TextColor3=T.Gold end
+    end
 end
 function UI.showDamage(from)
  if typeof(from)~="Vector3" then return end
  UI.damageFrom=from;UI.damageUntil=os.clock()+0.7
 end
+local function updateMatch(duel)
+	local count=math.max(0,math.ceil(duel.deadline-workspace:GetServerTimeNow()))
+	local timer=duel.phase=="Active" and string.format("  %d:%02d",math.floor(count/60),count%60) or ""
+	UI.matchScore.Text=string.format("%s  %d / %d  %s%s",duel.name,duel.score,duel.opponentScore,duel.opponent,timer)
+	UI.rematchButton.Visible=duel.phase=="Result" and duel.rematchAllowed==true
+	UI.resultLobby.Visible=duel.phase=="Result"
+	UI.resultLobby.Position=UDim2.new(UI.rematchButton.Visible and 0.5 or 0.25,6,1,-56)
+	UI.rematchButton.Text=duel.rematch and "WAITING FOR OPPONENT" or "REMATCH"
+	if duel.phase=="Versus" then
+		UI.matchTitle.Text="VERTEX YARD"
+		UI.matchDetail.Text=duel.name.."  VS  "..duel.opponent
+	elseif duel.phase=="Countdown" then
+		UI.matchTitle.Text=tostring(math.max(1,count))
+		UI.matchDetail.Text=string.format("ROUND %d",duel.round)
+	elseif duel.phase=="RoundEnd" then
+		UI.matchTitle.Text=duel.roundDecided and (duel.roundWon and "ROUND WON" or "ROUND LOST") or "ROUND DRAW"
+		UI.matchDetail.Text=duel.reason or ""
+	elseif duel.phase=="Result" then
+		UI.matchTitle.Text=duel.decided and (duel.won and "VICTORY" or "DEFEAT") or (duel.reason=="Draw limit" and "DRAW" or "DUEL ENDED")
+		UI.matchDetail.Text=string.format("%d / %d   ·   %d ELIMINATIONS\n%s",duel.score,duel.opponentScore,duel.eliminations,duel.reason or "")
+	end
+end
 function UI.step(humanoid,spread)
+ if UI.state and UI.state.duel then updateMatch(UI.state.duel) end
  UI.damageDirection.Visible=not UI.menu and UI.state and UI.state.mode~="Lobby" and os.clock()<(UI.damageUntil or 0) or false
  if UI.damageDirection.Visible then
   local cam=workspace.CurrentCamera
@@ -343,7 +392,8 @@ function UI.step(humanoid,spread)
 	UI.cross[1].Position=UDim2.fromOffset(-spread,0); UI.cross[2].Position=UDim2.fromOffset(spread,0)
 	UI.cross[3].Position=UDim2.fromOffset(0,-spread); UI.cross[4].Position=UDim2.fromOffset(0,spread)
 	UI.toast.Visible=os.clock()<(UI.toastUntil or 0)
-	UI.hit.Visible=os.clock()<(UI.hitUntil or 0)
+	UI.hit.Visible=not UI.menu and os.clock()<(UI.hitUntil or 0)
+    UI.hit.TextTransparency=math.clamp(1-((UI.hitUntil or 0)-os.clock())/0.13,0,1)
 	if UI.invitationUntil and os.clock()>=UI.invitationUntil then UI.inviteText.Text="Invite another player in the lobby."; UI.invitationUntil=nil end
 end
 function UI.flashScreen(intensity,duration)

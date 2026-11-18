@@ -2,7 +2,7 @@ local W=require("../src/shared/Weapons")
 local R=require("../src/shared/Rules")
 local count=0
 local function check(x,message) count+=1; assert(x,message) end
-check(#W.List==47,"All named items must be registered")
+check(#W.List==48,"All named items must be registered")
 local totals={0,0,0,0}; local seen={}
 local kinds={auto=true,burst=true,pellets=true,rocket=true,grenade=true,flame=true,charge=true,bolt=true,semi=true,melee=true,
 	grapple=true,heal=true,mine=true,warp=true,flash=true,freeze=true,pad=true,molotov=true,satchel=true,smoke=true,horn=true}
@@ -14,7 +14,7 @@ for _,d in ipairs(W.List) do
 	if d.magazine then check(d.reserve>=d.magazine and d.reload>0,"Ammo contract") end
 	if d.slot==4 then check(d.cooldown>0 and d.charges>0,"Utility must be bounded") end
 end
-for i,n in ipairs({14,11,10,12}) do check(totals[i]==n,"Category count mismatch") end
+for i,n in ipairs({15,11,10,12}) do check(totals[i]==n,"Category count mismatch") end
 local owned={}; for slot,id in ipairs(W.Default) do owned[id]=true; check(W.ById[id].slot==slot,"Exactly one starter per slot") end
 check(not R.allowed(W.ById.rpg,owned,"Lobby"),"Lobby cannot unlock trial")
 check(R.allowed(W.ById.rpg,owned,"Range"),"Range must allow trial")

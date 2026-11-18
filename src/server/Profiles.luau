@@ -7,7 +7,7 @@ local Store=DataStoreService:GetDataStore("ZIVRA_Profiles_v1")
 local Profiles={Sessions={}}
 local function defaults()
 	local owned={}
-	for _,id in ipairs(Weapons.Default) do owned[id]=true end
+	for id in pairs(Weapons.Launch) do owned[id]=true end
 	return {version=1,owned=owned,loadout=table.clone(Weapons.Default),currency=0,
 		settings={quality="Automatic",reduceFlash=true,volume=0.6,sensitivity=1},favorites={},
 		daily=Rules.daily(math.floor(os.time()/86400)),stats={kills=0,wins=0,duels=0}}
@@ -24,11 +24,12 @@ local function migrate(raw)
 	for k,v in pairs(initial.settings) do if p.settings[k]==nil then p.settings[k]=v end end
 	for k in pairs(initial.stats) do assert(type(p.stats[k])=="number" and p.stats[k]>=0,"Malformed statistics") end
 	assert(type(p.owned)=="table" and type(p.loadout)=="table","Malformed inventory")
+	for id in pairs(Weapons.Launch) do p.owned[id]=true end
 	local loadout={}
 	for i,id in ipairs(Weapons.Default) do
 		p.owned[id]=true
 		local d=Weapons.ById[p.loadout[i]]
-		loadout[i]=d and d.slot==i and p.owned[d.id]==true and d.id or id
+		loadout[i]=d and d.slot==i and Weapons.Launch[d.id] and d.id or id
 	end
 	p.loadout=loadout
 	if not ({Automatic=true,Low=true,Medium=true,High=true})[p.settings.quality] then p.settings.quality="Automatic" end

@@ -120,9 +120,15 @@ function Controller:Step(dt)
  if self.intent~=intent then self.intent=intent;self:Send(intent) end
  self.character:SetAttribute('ZIVRALocalMovement',self.state)
 end
-function Controller:CameraStep(dt)
+function Controller:ResetIntent()
+ self:EndSlide()
+ self.sprint=false;self.crouch=false;self.airMomentum=nil;self.intent=nil;self.speed=C.WalkSpeed
+ self.state='Idle';self.h.CameraOffset=Vector3.zero
+ self.character:SetAttribute('ZIVRALocalMovement','Idle')
+end
+function Controller:CameraStep(dt,combat)
  local aiming=self.character:GetAttribute('Aiming')==true or Players.LocalPlayer:GetAttribute('Aiming')==true or self.character:GetAttribute('ZIVRAAiming')==true
- self.camera:Step(dt,self.state,self.root.AssemblyLinearVelocity,self:Grounded(),aiming)
+ self.camera:Step(dt,self.state,self.root.AssemblyLinearVelocity,self:Grounded(),aiming,combat)
 end
 function Controller:Destroy()
  self:EndSlide()

@@ -1,3 +1,4 @@
+if require(game:GetService('ReplicatedStorage'):WaitForChild('ZIVRA').Config).Launch1v1 then return end
 -- Server-side ready pose keeps existing muzzle validation consistent with client poses.
 local Players=game:GetService('Players');local RunService=game:GetService('RunService')
 local poses={

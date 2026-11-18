@@ -1,6 +1,7 @@
 local Players=game:GetService('Players')
 local Shared=game.ReplicatedStorage.ZIVRAHQ
 local Config=require(Shared.Config)
+local Launch=require(game.ReplicatedStorage.ZIVRA.Config).Launch1v1
 local Core=require(script.Parent.PartyCore)
 local Stats=require(script.Parent.SessionStats)
 local Round=require(game.ServerScriptService.ZIVRAMapServices.RoundService)
@@ -30,6 +31,7 @@ function S.Request(p,action,value)
  b.tokens=math.min(16,b.tokens+(now-b.time)*8);b.time=now
  if b.tokens<1 or type(action)~='string' then return end;b.tokens-=1
  if action=='Sync' then S.Push(p);return end
+ if Launch and action~='Setting' then return end
  if p:GetAttribute('ZIVRACombatMode') and p:GetAttribute('ZIVRACombatMode')~='Lobby' then notify(p,'Return to headquarters first.');return end
  if action=='Invite' then
   if type(value)~='number' or value%1~=0 then return end
@@ -97,7 +99,7 @@ Round.Completed.Event:Connect(function(members,winner,valid,message)
 end)
 task.spawn(function()
  while true do
-  if not Round.Current then
+  if not Launch and not Round.Current then
    for _,mode in {'Duel','Team'} do
     local match=S.Core:FindMatch(mode,modes[mode].TeamSize)
     if match then
@@ -116,13 +118,23 @@ task.spawn(function()
   end
   for _,p in Players:GetPlayers() do
    local c=p.Character;local root=c and c:FindFirstChild('HumanoidRootPart')
-   if root and not p:GetAttribute('ZIVRAInMatch') and root.Position.Y<20 then require(game.ServerScriptService.ZIVRAMapServices.SpawnService).Lobby(p,p.Team,p.Neutral) end
+   if root and (p:GetAttribute('ZIVRACombatMode') or 'Lobby')=='Lobby' and not p:GetAttribute('ZIVRAInMatch') and root.Position.Y<20 then require(game.ServerScriptService.ZIVRAMapServices.SpawnService).Lobby(p,p.Team,p.Neutral) end
   end
   task.wait(Config.QueueInterval)
  end
 end)
 local function station(term)
  local prompt=term:FindFirstChildOfClass('ProximityPrompt');if not prompt then return end
+ if Launch then
+  local page,mode=term:GetAttribute('Page'),term:GetAttribute('Mode')
+  if page~='Loadout' and not (page=='Play' and (mode=='Duel' or not mode)) then
+   prompt.Enabled=false
+   for _,child in term:GetDescendants() do
+    if child:IsA('SurfaceGui') or child:IsA('BillboardGui') then child.Enabled=false end
+   end
+   return
+  end
+ end
  prompt.Triggered:Connect(function(p)
   local root=p.Character and p.Character:FindFirstChild('HumanoidRootPart')
   if root and (root.Position-term.Position).Magnitude<=12 and not p:GetAttribute('ZIVRAInMatch') then
@@ -135,6 +147,7 @@ end
 for _,term in workspace.ZIVRA_Corridor.Terminals:GetChildren() do station(term) end
 task.spawn(function()
  while true do
+  if Launch then return end
   local board=workspace.ZIVRA_Corridor:FindFirstChild('LeaderboardBoard',true)
   if board then local label=board:FindFirstChild('Display',true)
    if label then

@@ -2,6 +2,9 @@ local Players=game:GetService("Players")
 local RunService=game:GetService("RunService")
 local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
 local Rules=require(Shared.Rules)
+local Config=require(Shared.Config)
+local Duel=require(script.Duel)
+local Traversal=require(script.Traversal)
 local Profiles=require(script.Profiles)
 local World=require(script.World)
 local Combat=require(script.Combat)
@@ -12,11 +15,9 @@ local request=Instance.new("RemoteEvent"); request.Name="Request"; request.Paren
 local feedback=Instance.new("RemoteEvent"); feedback.Name="Feedback"; feedback.Parent=Shared
 Combat.init(feedback,World,Profiles); Combat.Projectiles=Projectiles; Combat.Utility=Utility
 Projectiles.init(Combat); Utility.init(Combat)
-local function available(player)
-    if player:GetAttribute("ZIVRAInMatch") or player:GetAttribute("ZIVRATraining") then return false end
-    local hq=game.ServerScriptService:FindFirstChild("ZIVRAHQServices")
-    if hq then local party=require(hq.LobbyService).Core:Get(player.UserId); if party and party.state~="Idle" then return false end end
-    return true
+if Config.Launch1v1 then
+ local storage=Instance.new("Folder"); storage.Name="ZIVRA_InactiveStarterTools"; storage.Parent=game.ServerStorage
+ for _,item in game.StarterPack:GetChildren() do if item:IsA("Tool") then item.Parent=storage end end
 end
 local stashed={}
 local function tools(player)
@@ -31,85 +32,244 @@ local function tools(player)
         stashed[player]:Destroy();stashed[player]=nil
     end
 end
-local matches={}; local invitations={}; local arenaReady=0; local nextMatch=0; local connections={}; local shuttingDown=false
-local finishMatch
-local function lobby(player)
-	local s=Combat.States[player]; if not s then return end
-	if s.match then finishMatch(s.match,nil,"Duel ended") end
-	Combat.transition(player,"Lobby",World.LobbyCFrame)
-end
-local function enterRange(player)
-	local s=Combat.States[player]
-	if not s or s.mode~="Lobby" or not Combat.alive(player) or not available(player) then return end
-	Combat.transition(player,"Range",CFrame.new(World.Origin+Vector3.new(0,5,80)))
-end
-finishMatch=function(id,winner,message)
-	local match=matches[id]; if not match then return end
-	matches[id]=nil; arenaReady=os.clock()+2.2
-	for _,player in ipairs(match.players) do
+local match
+local queueOrder=0
+local connections={}
+local shuttingDown=false
+local function publishMatch(current)
+	for side,player in ipairs(current.players) do
 		local s=Combat.States[player]
-		if s then
-			s.match=nil
-			if winner then
-				local daily=Profiles.daily(s.profile); daily.duels+=1; s.profile.stats.duels+=1
-				if winner==player then daily.wins+=1; s.profile.stats.wins+=1; s.profile.currency+=25 end
-			end
-			Combat.cleanup(player); s.mode="Lobby"; s.epoch+=1; s.trigger=nil; s.grapple=nil
-			Combat.send(player,"Notice",message or (winner==player and "Duel won +25" or "Duel complete"))
-			task.delay(2,function()
-				if Combat.States[player]==s and s.mode=="Lobby" then
-					if Combat.alive(player) then Combat.transition(player,"Lobby",World.LobbyCFrame)
-					else player:LoadCharacterAsync() end
-				end
-			end)
+		if s and s.mode=="Duel" and s.duel and s.duel.id==current and player.Parent==Players then
+			player:SetAttribute("ZIVRADuelPhase",current.phase)
+			local opponent=3-side
+			s.duel={
+				id=current, phase=current.phase,
+			}
+			s.duelView={
+				phase=current.phase, round=current.round, reason=current.reason,
+				deadline=workspace:GetServerTimeNow()+math.max(0,current.deadline-os.clock()),
+				name=player.DisplayName, opponent=current.players[opponent].DisplayName,
+				score=current.score[side], opponentScore=current.score[opponent],
+				eliminations=current.eliminations[side], opponentEliminations=current.eliminations[opponent],
+				won=current.winner==side, decided=current.winner~=nil,
+				roundWon=current.roundWinner==side, roundDecided=current.roundWinner~=nil,
+				rematchAllowed=current.rematchAllowed, rematch=current.rematch[side]==true,
+			}
+			Combat.snapshot(player)
 		end
 	end
 end
-Combat.onElimination=function(winner,victim)
-	local s=Combat.States[victim]
-	if s and s.match then finishMatch(s.match,winner) end
-end
-local function startDuel(first,second)
-	-- One physical arena: serialize matches until instanced arenas are introduced.
-	if next(matches) or os.clock()<arenaReady then return false end
-	local a,b=Combat.States[first],Combat.States[second]
-	if not available(first) or not available(second) then return false end
-	if not a or not b or a.mode~="Lobby" or b.mode~="Lobby" or not Combat.alive(first) or not Combat.alive(second) then return false end
-	nextMatch+=1; local id=nextMatch
-	matches[id]={players={first,second},expires=os.clock()+180}
-	for i,p in ipairs({first,second}) do
-		invitations[p]=nil
-		local cs=Combat.States[p]; cs.match=id; cs.eliminated=false
-		local position=World.ArenaOrigin+Vector3.new(0,5,i==1 and 60 or -60)
-		Combat.transition(p,"Duel",CFrame.lookAt(position,World.ArenaOrigin+Vector3.new(0,5,0)))
-		cs.busy=os.clock()+3; Combat.snapshot(p,"Duel starts in 3 seconds")
+
+local function freeze(player,value)
+	local _,_,root=Combat.alive(player)
+	if root then
+		root.AssemblyLinearVelocity=Vector3.zero
+		root.AssemblyAngularVelocity=Vector3.zero
+		root.Anchored=value
 	end
-	return true
 end
+
+local function returnToHQ(player)
+	local s=Combat.States[player]
+	if not s or player.Parent~=Players then return end
+	local wasInArena=s.mode=="Duel"
+	s.duel=nil
+	s.duelView=nil
+	player:SetAttribute("ZIVRADuelPhase",nil)
+	freeze(player,false)
+	Combat.transition(player,"Lobby",World.LobbyCFrame)
+	s.lobbyReturn=nil
+	if wasInArena and not Combat.alive(player) and player.Character then
+		-- The normal Roblox respawn will enter at the headquarters spawn.
+		local root=player.Character:FindFirstChild("HumanoidRootPart")
+		if root then root.Anchored=false end
+	end
+end
+
+local function releaseMatch(current)
+	if match~=current then return end
+	match=nil
+	for _,player in ipairs(current.players) do
+		local s=Combat.States[player]
+		if s and s.duel and s.duel.id==current then returnToHQ(player) end
+	end
+end
+
+local function cancelMatch(current, reason, departing)
+	current:finish(nil,reason,os.clock())
+	current.deadline=os.clock()+6
+	for _,player in ipairs(current.players) do
+		if player~=departing then freeze(player,true) end
+	end
+	publishMatch(current)
+end
+
+local function lobby(player)
+	local s=Combat.States[player]
+	if not s then return end
+	if match and s.duel and s.duel.id==match then
+		if match.phase~="Result" then
+			cancelMatch(match,"Opponent returned to headquarters",player)
+		else
+			match.rematchAllowed=false
+			publishMatch(match)
+		end
+		returnToHQ(player)
+		local other=match.players[3-match:side(player)]
+		local opponent=Combat.States[other]
+		if not opponent or not opponent.duel then releaseMatch(match) end
+	elseif s.mode~="Lobby" then
+		returnToHQ(player)
+	end
+end
+
+local function enterRange(player)
+	local s=Combat.States[player]
+	if Config.Launch1v1 or not s or s.mode~="Lobby" or not Combat.alive(player) then return end
+	Combat.transition(player,"Range",CFrame.new(World.Origin+Vector3.new(0,5,80)))
+end
+
+local function roundEnded(current)
+	for _,player in ipairs(current.players) do
+		local s=Combat.States[player]
+		s.epoch+=1
+		s.trigger=nil
+		s.busy=0
+		Combat.cleanup(player)
+		freeze(player,true)
+		if current.phase=="Result" then
+			local p=s.profile
+			local daily=Profiles.daily(p)
+			daily.duels+=1
+			p.stats.duels+=1
+			if current.players[current.winner]==player then
+				daily.wins+=1
+				p.stats.wins+=1
+			end
+		end
+	end
+	publishMatch(current)
+end
+
+local function resolveRound(winner,reason)
+	if match and match:resolve(winner,reason,os.clock()) then roundEnded(match) end
+end
+
+Combat.onElimination=function(winner,victim,headshot)
+	if match and match.phase=="Active" and match:side(winner) and match:side(victim) then
+		Combat.send(winner,"Notice",headshot and "HEADSHOT ELIMINATION" or "ELIMINATION")
+		resolveRound(match:side(winner),"Elimination")
+	end
+end
+
+local function startDuel(first,second,now)
+	local players={first,second}
+	match=Duel.new(players,Config.Duel,now)
+	for side,p in ipairs(players) do
+		local s=Combat.States[p]
+		s.duel={id=match, phase="Versus"}
+		p:SetAttribute("ZIVRAQueued",false)
+		Combat.transition(p,"Duel",World.spawn(side,1))
+		freeze(p,true)
+	end
+	publishMatch(match)
+end
+
 local function queue(player)
-	local s=Combat.States[player]; if not s or s.mode~="Lobby" or not Combat.alive(player) then return end
-	s.queued=not s.queued; Combat.snapshot(player,s.queued and "Waiting for an opponent" or "Left queue")
-	if not s.queued then return end
-	for other,os in pairs(Combat.States) do
-		if other~=player and os.queued and os.mode=="Lobby" and Combat.alive(other) then startDuel(player,other); break end
+	local s=Combat.States[player]
+	if not s or s.mode~="Lobby" or not Combat.alive(player) then return end
+	if s.queued then
+		s.queued=false
+	else
+		queueOrder+=1
+		s.queued=queueOrder
+	end
+	player:SetAttribute("ZIVRAQueued",s.queued and true or false)
+	Combat.snapshot(player,s.queued and "Waiting for an opponent" or "Left queue")
+end
+
+local function matchStep(now)
+	local current=match
+	if not current then
+		local candidates={}
+		for p,s in pairs(Combat.States) do
+			if s.queued and s.mode=="Lobby" and s.readyCharacter==p.Character and Combat.alive(p) then
+				table.insert(candidates,p)
+			end
+		end
+		table.sort(candidates,function(a,b) return Combat.States[a].queued<Combat.States[b].queued end)
+		if candidates[2] then startDuel(candidates[1],candidates[2],now) end
+		return
+	end
+	if current.phase=="Result" and current.rematchAllowed and current.rematch[1] and current.rematch[2]
+		and Combat.alive(current.players[1]) and Combat.alive(current.players[2]) then
+		startDuel(current.players[2],current.players[1],now)
+		return
+	end
+	if now<current.deadline then return end
+	if current.phase=="Active" then
+		local _,first=Combat.alive(current.players[1])
+		local _,second=Combat.alive(current.players[2])
+		if current:timeout(first and first.Health or 0,second and second.Health or 0,now) then roundEnded(current) end
+	elseif current.phase=="Result" then
+		releaseMatch(current)
+	elseif current.phase=="Countdown" then
+		if not Combat.alive(current.players[1]) or not Combat.alive(current.players[2]) then
+			cancelMatch(current,"A player did not respawn")
+			return
+		end
+		current:begin(now)
+		for _,player in ipairs(current.players) do freeze(player,false) end
+		publishMatch(current)
+	else
+		for _,player in ipairs(current.players) do
+			if not Combat.alive(player) then
+				if now>=current.deadline+Config.Duel.RespawnGraceSeconds then cancelMatch(current,"A player did not respawn") end
+				return
+			end
+		end
+		current:countdown(now)
+		for side,player in ipairs(current.players) do
+			local s=Combat.States[player]
+			s.duel.phase="Countdown"
+			Combat.transition(player,"Duel",World.spawn(side,current.round))
+			freeze(player,true)
+		end
+		publishMatch(current)
 	end
 end
 World.build(enterRange,lobby,queue)
 local function characterAdded(player,character)
 	local h=character:WaitForChild("Humanoid",10); local root=character:WaitForChild("HumanoidRootPart",10)
-	if not h or not root then return end
+	if not h or not root or player.Character~=character then return end
 	local s=Combat.States[player]; if not s then return end
-	if s.match then finishMatch(s.match,nil,"Duel ended after respawn") end
-	s.eliminated=false
+	local inDuel=s.duel and match==s.duel.id
 	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
-    s.mode="Lobby";player:SetAttribute("ZIVRACombatMode","Lobby");tools(player);Combat.reset(player)
+	if inDuel then
+		if match.phase=="Active" then resolveRound(3-match:side(player),"Reset") end
+		Combat.transition(player,"Duel",World.spawn(match:side(player),math.max(1,match.round)))
+		freeze(player,true)
+	else
+		s.mode="Lobby"
+		s.queued=false
+		player:SetAttribute("ZIVRAQueued",false)
+		player:SetAttribute("ZIVRACombatMode","Lobby")
+		tools(player)
+		Combat.reset(player)
+	end
+	s.readyCharacter=character
+	player:SetAttribute("ZIVRAReady",true)
     if connections[player] and connections[player].health then connections[player].health:Disconnect() end
     local lastHealth=h.Health
     connections[player].health=h.HealthChanged:Connect(function(value) if value<lastHealth then s.lastHit=os.clock() end;lastHealth=value end)
     if connections[player] and connections[player].death then connections[player].death:Disconnect() end
 	local death=h.Died:Connect(function()
 		Combat.cleanup(player); s.epoch+=1; s.trigger=nil; s.blocking=false; s.grapple=nil
-		if s.match and not s.pendingElimination then finishMatch(s.match,nil,"Duel ended") end
+		if s.duel and not s.pendingElimination and match==s.duel.id then
+			resolveRound(3-match:side(player),"Opponent fell")
+		elseif s.queued then
+			s.queued=false; player:SetAttribute("ZIVRAQueued",false)
+		end
 	end)
 	if connections[player] then connections[player].death=death else death:Disconnect() end
 end
@@ -128,9 +288,15 @@ Players.PlayerAdded:Connect(added)
 for _,player in ipairs(Players:GetPlayers()) do task.spawn(added,player) end
 Players.PlayerRemoving:Connect(function(player)
 	local s=Combat.States[player]
-	if s and s.match then finishMatch(s.match,nil,"Opponent disconnected; no win reward") end
-	Combat.cleanup(player); Combat.States[player]=nil; invitations[player]=nil
-	for target,invite in pairs(invitations) do if invite.from==player then invitations[target]=nil end end
+	if s and s.duel and match==s.duel.id then
+		if match.phase=="Result" then
+			match.rematchAllowed=false
+			publishMatch(match)
+		else
+			cancelMatch(match,"Opponent disconnected",player)
+		end
+	end
+	Combat.cleanup(player); Combat.States[player]=nil
 	if connections[player] then for _,c in pairs(connections[player]) do c:Disconnect() end; connections[player]=nil end
 	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
 	Profiles.save(player,true)
@@ -172,31 +338,40 @@ request.OnServerEvent:Connect(function(player,action,value)
 	elseif action=="Range" then enterRange(player)
 	elseif action=="Lobby" then if s.mode~="Lobby" then lobby(player) end
 	elseif action=="Queue" then if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+1; queue(player) end
-	elseif action=="Invite" then
-		if s.mode=="Lobby" and Rules.finite(value) and os.clock()>(s.nextInvite or 0) then
-			s.nextInvite=os.clock()+5
-			local target=Players:GetPlayerByUserId(value); local ts=target and Combat.States[target]
-			if ts and target~=player and ts.mode=="Lobby" and not ts.queued and not s.queued and not invitations[target] then
-				invitations[target]={from=player,expires=os.clock()+20}
-				Combat.send(target,"Invite",{userId=player.UserId,name=player.DisplayName,duration=20})
-				Combat.snapshot(player,"Duel invitation sent")
-			end
-		end
-	elseif action=="AcceptInvite" or action=="DeclineInvite" then
-		local invite=invitations[player]; invitations[player]=nil
-		if action=="AcceptInvite" and invite and invite.expires>os.clock() then
-			if not startDuel(invite.from,player) then Combat.snapshot(player,"Arena busy or invitation unavailable; use the duel queue") end
+	elseif action=="Rematch" then
+		if match and s.duel and s.duel.id==match and match:vote(player) then
+			local first,second=match.players[1],match.players[2]
+			if Combat.alive(first) and Combat.alive(second) then startDuel(second,first,os.clock()) else publishMatch(match) end
+		elseif match and s.duel and s.duel.id==match then
+			publishMatch(match)
 		end
 	elseif action=="ResetRange" then
 		if s.mode=="Range" and os.clock()>(s.nextReset or 0) then s.nextReset=os.clock()+5; Combat.reset(player); s.rangeStats={shots=0,hits=0,damage=0,started=os.clock()} end
-	elseif action=="Sprint" then if type(value)=="boolean" then s.sprint=value; if value then s.crouch=false end end
-	elseif action=="Crouch" then
+	elseif action=="Sprint" and s.mode=="Range" then if type(value)=="boolean" then s.sprint=value; if value then s.crouch=false end end
+	elseif action=="Crouch" and s.mode=="Range" then
 		local alive,h,r=Combat.alive(player)
 		if alive and not s.menu and os.clock()>(s.nextSlide or 0) then
 			if s.sprint and h.MoveDirection.Magnitude>0.5 and h.FloorMaterial~=Enum.Material.Air then
 				s.slideUntil=os.clock()+0.55; s.slideDirection=h.MoveDirection.Unit; s.nextSlide=os.clock()+1.8; s.crouch=false; s.sprint=false
 				Combat.send(player,"Slide",{duration=0.55})
 			else s.crouch=not s.crouch; s.sprint=false end
+		end
+	elseif action=="Traverse" then
+		local dir=Combat.direction(value)
+		local now=os.clock()
+		if dir and math.abs(dir.Y)<0.1 and s.mode=="Duel" and Combat.permitted(s) and not s.menu and now>=(s.nextTraverse or 0) then
+			s.nextTraverse=now+0.28
+			local alive,humanoid,root=Combat.alive(player)
+			if alive and not root.Anchored and humanoid.RigType==Enum.HumanoidRigType.R15 then
+				local path=Traversal.find(player.Character,root,humanoid,dir,World.Arena)
+				if path then
+					s.nextTraverse=now+0.65
+					local current,round=match,match.round
+					Traversal.start(player,root,path,function()
+						return match==current and current.round==round and Combat.permitted(s)
+					end)
+				end
+			end
 		end
 	elseif action=="Settings" then
 		if os.clock()>(s.nextSettings or 0) then s.nextSettings=os.clock()+0.3; settings(s,value); Combat.snapshot(player) end
@@ -213,16 +388,7 @@ RunService.Heartbeat:Connect(function(dt)
 	if now>snapshotTime then
 		snapshotTime=now+0.3
 		for player in pairs(Combat.States) do Combat.snapshot(player) end
-		for id,m in pairs(matches) do if now>m.expires then finishMatch(id,nil,"Duel timed out") end end
-		for target,invite in pairs(invitations) do if now>invite.expires then invitations[target]=nil end end
-		if not next(matches) and now>=arenaReady then
-			local first
-			for p,s in pairs(Combat.States) do
-				if s.queued and s.mode=="Lobby" and Combat.alive(p) then
-					if first then startDuel(first,p); break else first=p end
-				end
-			end
-		end
+		matchStep(now)
 	end
 end)
 task.spawn(function()

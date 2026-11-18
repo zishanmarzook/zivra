@@ -27,7 +27,7 @@ function Combat.snapshot(player,message)
 		reserve=s.reserve,charges=s.charges,heat=s.heat,busy=math.max(0,s.busy-clock()),cooldowns=s.cooldowns,
 		reloading=s.reloadEpoch==s.epoch and clock()<s.busy,
 		currency=p.currency,daily=Combat.Profiles.daily(p),settings=p.settings,stats=s.rangeStats,
-		message=message,queued=s.queued,serverTime=clock(),offline=s.offline})
+		message=message,queued=s.queued~=nil and s.queued~=false,duel=s.duelView,serverTime=clock(),offline=s.offline})
 end
 function Combat.add(player,profile,offline)
 	Combat.States[player]={profile=profile,mode="Lobby",loadout=table.clone(profile.loadout),slot=1,
@@ -77,9 +77,14 @@ function Combat.transition(player,mode,cf)
 	if r then player.Character:PivotTo(cf); r.AssemblyLinearVelocity=Vector3.zero; s.lastPosition=cf.Position end
 	Combat.reset(player)
 end
+function Combat.permitted(s)
+	return s.mode=="Range" or s.mode=="Duel" and s.duel and s.duel.phase=="Active"
+end
 function Combat.equip(player,id)
 	local s=Combat.States[player]; local d=Weapons.ById[id]
 	if not s or not d or not Rules.allowed(d,s.profile.owned,s.mode) then return end
+	if s.mode~="Range" and not Weapons.Launch[d.id] then return end
+	if s.mode=="Duel" and not Combat.permitted(s) then return end
 	if s.mode=="Duel" and s.loadout[d.slot]~=id then return end
 	if s.loadout[d.slot]~=id then
 		s.loadout[d.slot]=id
@@ -113,17 +118,17 @@ function Combat.canDamage(owner,model)
 	if model:GetAttribute("ZIVRA_Target") then return s.mode=="Range" end
 	local victim=Players:GetPlayerFromCharacter(model)
 	local other=victim and Combat.States[victim]
-	return victim~=owner and s.mode=="Duel" and other and other.mode=="Duel" and s.match and s.match==other.match
-		and (owner.Team==nil or owner.Team~=victim.Team or owner.Neutral or victim.Neutral)
+	return victim~=owner and other and Combat.permitted(s) and Combat.permitted(other)
+		and s.duel and other.duel and s.duel.id==other.duel.id
 end
-function Combat.damage(owner,model,amount,hitpart,from,def,secondary)
+function Combat.damage(owner,model,amount,hitpart,from,def,secondary,scaledHeadshot)
 	if not Combat.canDamage(owner,model) then return end
 	local h=model:FindFirstChildOfClass("Humanoid"); if not h or h.Health<=0 then return end
 	if model:FindFirstChildOfClass("ForceField") then return end
 	local s=Combat.States[owner]; local victim=Players:GetPlayerFromCharacter(model); local vs=victim and Combat.States[victim]
 	local root=model:FindFirstChild("HumanoidRootPart")
 	local headshot=hitpart and hitpart.Name=="Head"
-	if headshot then amount*=def.headshot or 1 end
+	if headshot and not scaledHeadshot then amount*=def.headshot or 1 end
 	if vs and vs.blocking and root and from and (from-root.Position).Magnitude>0.1 then
 		if root.CFrame.LookVector:Dot((from-root.Position).Unit)>0.45 then
 			amount*=def.radius and 0.7 or 0.25
@@ -155,8 +160,8 @@ function Combat.damage(owner,model,amount,hitpart,from,def,secondary)
 		if h.Health<=0 and not vs.eliminated then
 			vs.eliminated=true
 			local daily=Combat.Profiles.daily(s.profile); daily.kills+=1; s.profile.stats.kills+=1
-			s.profile.currency+=10; Combat.snapshot(owner,"Elimination +10")
-			if Combat.onElimination then Combat.onElimination(owner,victim) end
+			s.profile.currency+=10; Combat.snapshot(owner)
+			if Combat.onElimination then Combat.onElimination(owner,victim,headshot) end
 		end
 	end
 end
@@ -182,7 +187,7 @@ end
 function Combat.reload(player)
 	local s=Combat.States[player]; if not s then return end
 	local d=Weapons.ById[s.loadout[s.slot]]
-	if not Combat.alive(player) or s.menu or s.mode=="Lobby" or not d.magazine or clock()<s.busy or s.ammo[d.id]>=d.magazine or s.reserve[d.id]<=0 then return end
+	if not Combat.alive(player) or s.menu or not Combat.permitted(s) or not d.magazine or clock()<s.busy or s.ammo[d.id]>=d.magazine or s.reserve[d.id]<=0 then return end
 	s.epoch+=1; local epoch=s.epoch; s.reloadEpoch=epoch; s.busy=clock()+d.reload; s.trigger=nil; s.blocking=false
 	Combat.send(player,"Reload",{duration=d.reload}); Combat.snapshot(player)
 	task.delay(d.reload,function()
@@ -194,7 +199,7 @@ end
 function Combat.melee(player,dir,def)
 	local s=Combat.States[player]; local epoch=s.epoch
 	task.delay(def.windup or 0.16,function()
-		if Combat.States[player]~=s or s.epoch~=epoch or s.menu or not Combat.alive(player) then return end
+		if Combat.States[player]~=s or s.epoch~=epoch or s.menu or not Combat.permitted(s) or not Combat.alive(player) then return end
 		local _,_,root,head=Combat.alive(player)
 		local range=def.meleeRange or def.range
 		local overlap=OverlapParams.new(); overlap.FilterType=Enum.RaycastFilterType.Exclude; overlap.FilterDescendantsInstances={player.Character}
@@ -203,17 +208,20 @@ function Combat.melee(player,dir,def)
 		local seen={}
 		for _,p in ipairs(parts) do
 			local model=p:FindFirstAncestorOfClass("Model")
-			if model and not seen[model] and model:FindFirstChildOfClass("Humanoid") and (p.Position-head.Position).Magnitude<=range+2 then
-				seen[model]=true
-				if Combat.line(head.Position,p.Position,model,player) then Combat.damage(player,model,def.slash or def.damage,p,root.Position,def) end
+			if model and not seen[model] and model:FindFirstChildOfClass("Humanoid") and (p.Position-head.Position).Magnitude<=range then
+				if Combat.line(head.Position,p.Position,model,player) then
+					seen[model]=true
+					Combat.damage(player,model,def.slash or def.damage,p,root.Position,def)
+				end
 			end
 		end
 	end)
 end
 local rng=Random.new()
 function Combat.fire(player,dir,release)
-	local s=Combat.States[player]; if not s or not dir then return end
+	local s=Combat.States[player]; if not s or not dir or not Combat.permitted(s) then return end
 	local d=Weapons.ById[s.loadout[s.slot]]; local now=clock()
+	if s.mode=="Duel" and not Weapons.Launch[d.id] then return end
 	local alive,h,root,head=Combat.alive(player)
 	local allowed=Rules.attack({alive=alive,menu=s.menu,mode=s.mode,busy=s.busy,nextShot=s.nextShot,overheated=s.overheated,ammo=s.ammo[d.id] or 0},d,now)
 	if not allowed or s.blocking or s.grapple then return end
@@ -246,17 +254,32 @@ function Combat.fire(player,dir,release)
 		local movement=h.MoveDirection.Magnitude*0.8+(h.FloorMaterial==Enum.Material.Air and 2 or 0)
 		s.bloom=math.min((s.bloom or 0)+0.15,d.bloom or 1)
 		local spread=math.rad(d.spread+movement+(s.bloom or 0))
+		local hits={}
+		local params=Combat.params(player)
+		local frame=CFrame.lookAt(Vector3.zero,dir)
 		for _=1,d.pellets or 1 do
-			local frame=CFrame.lookAt(Vector3.zero,dir)
 			local radius=math.sqrt(rng:NextNumber())*spread; local angle=rng:NextNumber()*math.pi*2
 			local direction=(frame*CFrame.Angles(math.sin(angle)*radius,math.cos(angle)*radius,0)).LookVector
-			local hit=workspace:Raycast(head.Position,direction*d.range,Combat.params(player))
+			local hit=workspace:Raycast(head.Position,direction*d.range,params)
 			local finish=hit and hit.Position or head.Position+direction*d.range
 			Combat.fx("shot",{position=head.Position,finish=finish,id=d.id,owner=player.UserId})
 			if hit then
 				local model=hit.Instance:FindFirstAncestorOfClass("Model")
-				if model then Combat.damage(player,model,d.damage*Rules.falloff(d,(finish-head.Position).Magnitude),hit.Instance,head.Position,d) end
+				if model and Combat.canDamage(player,model) then
+					local headshot=hit.Instance.Name=="Head"
+					local amount=Rules.hitDamage(d,(finish-head.Position).Magnitude,headshot)
+					local aggregate=hits[model]
+					if not aggregate then
+						aggregate={amount=0,part=hit.Instance}
+						hits[model]=aggregate
+					end
+					aggregate.amount+=amount
+					if headshot then aggregate.part=hit.Instance end
+				end
 			end
+		end
+		for model,hit in pairs(hits) do
+			Combat.damage(player,model,hit.amount,hit.part,head.Position,d,false,true)
 		end
 	end
 	Combat.snapshot(player)
@@ -268,7 +291,7 @@ function Combat.trigger(player,on)
 	else s.trigger=nil end
 end
 function Combat.alternate(player,dir)
-	local s=Combat.States[player]; if not s or not Combat.alive(player) or s.mode=="Lobby" or s.menu or clock()<s.busy then return end
+	local s=Combat.States[player]; if not s or not Combat.alive(player) or not Combat.permitted(s) or s.menu or clock()<s.busy then return end
 	local d=Weapons.ById[s.loadout[s.slot]]
 	if d.slash and clock()>=s.nextShot then
 		s.nextShot=clock()+0.8; s.busy=s.nextShot; Combat.melee(player,dir,d); Combat.send(player,"Fired",{id=d.id,slash=true})
@@ -292,8 +315,8 @@ function Combat.step(dt,now)
 			if s.slowUntil and now<s.slowUntil then speed*=s.slowScale end
 			if s.buffUntil and now<s.buffUntil then speed*=1.15 end
 			if d.moveScale and now-(s.lastShot or 0)<0.25 then speed*=d.moveScale end
-			h.WalkSpeed=speed
-			if now<(s.slideUntil or 0) then
+			if s.mode=="Range" then h.WalkSpeed=speed end
+			if s.mode=="Range" and now<(s.slideUntil or 0) then
 				local v=s.slideDirection*28; r.AssemblyLinearVelocity=Vector3.new(v.X,r.AssemblyLinearVelocity.Y,v.Z)
 			end
 			if s.grapple then
@@ -314,7 +337,10 @@ function Combat.step(dt,now)
 				s.movementWindow=window
 				if not Combat.World.inBounds(r.Position,s.mode) then
 					local origin=s.mode=="Range" and Combat.World.Origin or Combat.World.ArenaOrigin
-					player.Character:PivotTo(CFrame.new(origin+Vector3.new(0,5,60))); r.AssemblyLinearVelocity=Vector3.zero
+					local fallback=s.mode=="Duel" and s.duel and Combat.World.spawn(s.duel.id:side(player),math.max(1,s.duel.id.round))
+						or CFrame.new(origin+Vector3.new(0,5,60))
+					player.Character:PivotTo(fallback); r.AssemblyLinearVelocity=Vector3.zero
+					s.movementWindow={position=r.Position,time=now}
 				end
 				s.lastPosition=r.Position
 			end

@@ -40,6 +40,14 @@ function P.Sample(state,phase,forward,side,armed)
   p.LowerTorso=CFrame.new(0,-0.35,0)*rot(-13);p.UpperTorso=rot(7)
   p.LeftUpperLeg=rot(-39,0,-5);p.RightUpperLeg=rot(-39,0,5)
   p.LeftLowerLeg=rot(69);p.RightLowerLeg=rot(69);p.LeftFoot=rot(-29);p.RightFoot=rot(-29)
+ elseif state=='Mantle' or state=='Vault' then
+  local mantle=state=='Mantle'
+  p.LowerTorso=rot(mantle and -20 or -36)
+  p.UpperTorso=rot(-12)
+  p.LeftUpperArm=rot(mantle and 145 or 95,0,-16);p.RightUpperArm=rot(mantle and 145 or 95,0,16)
+  p.LeftLowerArm=rot(-32);p.RightLowerArm=rot(-36)
+  p.LeftUpperLeg=rot(-53,0,-6);p.RightUpperLeg=rot(-36,0,7)
+  p.LeftLowerLeg=rot(64);p.RightLowerLeg=rot(71)
  elseif state=='Jump' then
   p.LowerTorso=rot(-6);p.LeftUpperLeg=rot(-27,0,-5);p.RightUpperLeg=rot(15,0,5)
   p.LeftLowerLeg=rot(40);p.RightLowerLeg=rot(30)

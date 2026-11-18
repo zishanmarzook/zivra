@@ -57,7 +57,7 @@ function Utility.detonate(player)
 end
 function Utility.activate(player,dir)
 	local s=C.States[player]; local alive,h,root,head=C.alive(player)
-	if not alive or not s or s.menu or s.mode=="Lobby" or now()<s.busy then return end
+	if not alive or not s or s.menu or not C.permitted(s) or now()<s.busy then return end
 	local d=Weapons.ById[s.loadout[4]]
 	if now()<(s.cooldowns[d.id] or 0) or (s.charges[d.id] or 0)<=0 then return end
 	local accepted=false

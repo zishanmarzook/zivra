@@ -27,14 +27,18 @@ local function stop()
 end
 local function usable()
 	local h=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	return state and state.mode~="Lobby" and not UI.menu and not UI.editing and not GuiService.MenuIsOpen and not UIS:GetFocusedTextBox() and h and h.Health>0
+	return state and state.mode~="Lobby" and (not state.duel or state.duel.phase=="Active") and not UI.menu and not UI.editing and not GuiService.MenuIsOpen and not UIS:GetFocusedTextBox() and h and h.Health>0
 end
 local function predict(d)
 	VM.fire()
-	if d.magazine then Effects.pulse((workspace.CurrentCamera.CFrame*CFrame.new(0.4,-0.25,-2)).Position,Color3.fromRGB(255,190,80),0.25,0.05) end
+	if d.magazine and not UI.settings.reduceFlash then
+        local muzzle=VM.model and VM.model:FindFirstChild("Muzzle")
+        local pos=muzzle and (muzzle.CFrame*CFrame.new(0,0,-0.15)).Position or (workspace.CurrentCamera.CFrame*CFrame.new(0.4,-0.25,-2)).Position
+        Effects.pulse(pos,Color3.fromRGB(255,190,110),0.18,0.045)
+    end
 end
 local function shoot()
-	if not usable() then return end
+	if not usable() or os.clock()<nextFire or state.reloading then return end
 	local d=Weapons.ById[state.loadout[state.slot]]
 	if d.magazine and (state.ammo[d.id] or 0)<=0 then return end
 	send("Fire",direction()); predict(d); nextFire=os.clock()+d.interval
@@ -73,6 +77,9 @@ local function action(name,on,input)
 		else aim=on; VM.aim=on end
 	elseif on and name=="Reload" then stop(); send("Reload")
 	elseif on and name=="Utility" then send("Utility",direction())
+	elseif state.mode=="Duel" and (name=="Crouch" or name=="Sprint") then
+		local movement=player.PlayerScripts:FindFirstChild("ZIVRA_DuelMovementInput")
+		if movement then movement:Fire(name,on) end
 	elseif on and name=="Crouch" then send("Crouch")
 	elseif name=="Sprint" then
 		if UIS.TouchEnabled then if on then sprint=not sprint; send("Sprint",sprint) end
@@ -120,6 +127,7 @@ for name,keys in pairs(mapping) do
 end
 CAS:BindAction("ZIVRACombat_Menu",function(_,inputState)
 	if UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
+	if state and state.duel and state.duel.phase~="Active" then return Enum.ContextActionResult.Pass end
 	if inputState==Enum.UserInputState.Begin then UI.setMenu(not UI.menu) end
 	return Enum.ContextActionResult.Sink
 end,false,Enum.KeyCode.B,Enum.KeyCode.ButtonY)
@@ -151,19 +159,25 @@ UIS.WindowFocusReleased:Connect(function() stop(); sprint=false; aim=false; VM.a
 player.CharacterAdded:Connect(function() stop(); VM.reloadStart=nil; aim=false; UI.setMenu(false) end)
 feedback.OnClientEvent:Connect(function(kind,data)
 	if kind=="State" then
-		if state and state.mode~=data.mode and UI.menu then UI.setMenu(false) end
-		local changed=not state or state.slot~=data.slot or state.loadout[data.slot]~=data.loadout[data.slot] or state.mode~=data.mode
+		if UI.menu and ((state and state.mode~=data.mode) or (data.duel and data.duel.phase~="Active")) then UI.setMenu(false) end
+		local changed=not state or state.slot~=data.slot or state.loadout[data.slot]~=data.loadout[data.slot] or state.mode~=data.mode or (state.duel and state.duel.phase)~=(data.duel and data.duel.phase)
 		if changed then stop(); VM.reloadStart=nil; aim=false; VM.aim=false end
+        if state and state.reloading and not data.reloading then VM.reloadStart=nil end
 		state=data; UI.update(data)
         UI.gui.Enabled=data.mode~="Lobby" or UI.menu
         UI.nav.Visible=false
         UI.inviteButton.Visible=false
         UI.health.Visible=data.mode~="Lobby";UI.ammo.Visible=data.mode~="Lobby"
-        UI.top.Visible=data.mode~="Lobby";UI.currency.Visible=data.mode~="Lobby"
-        UI.menuButton.Visible=data.mode~="Lobby"
+        UI.top.Visible=data.mode=="Range";UI.currency.Visible=false
+        UI.menuButton.Visible=data.mode~="Lobby" and (not data.duel or data.duel.phase=="Active")
         if data.mode~="Lobby" or UI.menu then UI.gui.Enabled=true end
 		VM.equip(data.loadout[data.slot]); VM.visible=data.mode~="Lobby"
-		if data.mode~="Lobby" then player.CameraMode=Enum.CameraMode.LockFirstPerson end
+		if data.mode=="Lobby" or data.duel and data.duel.phase=="Result" then
+			player.CameraMode=originalCameraMode
+			UIS.MouseBehavior=Enum.MouseBehavior.Default
+		else
+			player.CameraMode=Enum.CameraMode.LockFirstPerson
+		end
 		UIS.MouseDeltaSensitivity=originalSensitivity*(data.settings.sensitivity or 1)
 		Effects.quality=data.settings.quality; Effects.volume=data.settings.volume
 	elseif kind=="Effect" then Effects.play(data.kind,data.data)
@@ -201,8 +215,14 @@ RunService:BindToRenderStep("ZIVRA_Viewmodel",Enum.RenderPriority.Camera.Value+1
 		end
 	end
 	local cam=workspace.CurrentCamera
-	if state and state.mode~="Lobby" then cam.FieldOfView+=( (aim and not UI.menu and originalFOV-12 or originalFOV)-cam.FieldOfView)*math.min(1,dt*12) end
-	cameraRecoil=usable() and CFrame.Angles(VM.kick*0.12,0,0) or CFrame.identity
+	if state and state.mode~="Lobby" then
+		local base=player:GetAttribute("ZIVRAAppliedFOV") or originalFOV
+		local motion=player:GetAttribute("ZIVRAReducedMotion") and 0 or 1
+		local movement=player.Character and player.Character:GetAttribute("ZIVRALocalMovement")
+		local target=aim and not UI.menu and base-(state.loadout[state.slot]=="sniper_rifle" and 31 or 12) or base+(movement=="Sprint" and 6*motion or 0)
+		cam.FieldOfView+=(target-cam.FieldOfView)*math.min(1,dt*12)
+	end
+	cameraRecoil=usable() and not player:GetAttribute("ZIVRAReducedMotion") and CFrame.Angles(VM.kick*0.12,0,0) or CFrame.identity
 	cam.CFrame*=cameraRecoil
 	VM.step(dt,h,UI.menu)
 	local d=state and Weapons.ById[state.loadout[state.slot]]

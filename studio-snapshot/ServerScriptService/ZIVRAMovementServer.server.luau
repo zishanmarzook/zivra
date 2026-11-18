@@ -5,6 +5,11 @@ local Shared=game.ReplicatedStorage:WaitForChild('ZIVRAMovement')
 local C=require(Shared.Config);local M=require(Shared.MotionMath)
 local Remote=Shared.Request
 local records={}
+local launch=require(game.ReplicatedStorage.ZIVRA.Config).Launch1v1
+local function active(player)
+ local mode=player:GetAttribute('ZIVRACombatMode') or 'Lobby'
+ return mode=='Duel' and player:GetAttribute('ZIVRADuelPhase')=='Active' or not launch and mode=='Lobby'
+end
 local allowed={Walk=true,Sprint=true,Crouch=true,Slide=true,SlideJump=true,EndSlide=true}
 local function bind(player,character)
  local h=character:WaitForChild('Humanoid',10);local root=character:WaitForChild('HumanoidRootPart',10)
@@ -24,7 +29,7 @@ end
 Players.PlayerAdded:Connect(added);Players.PlayerRemoving:Connect(function(p) records[p]=nil end)
 for _,p in Players:GetPlayers() do added(p) end
 Remote.OnServerEvent:Connect(function(player,action,sequence,direction)
- if player:GetAttribute('ZIVRACombatMode') and player:GetAttribute('ZIVRACombatMode')~='Lobby' then return end
+ if not active(player) then return end
  local s=records[player];if not s or not allowed[action] then return end
  local now=os.clock()
  s.tokens=math.min(24,s.tokens+(now-s.lastRequest)*14);s.lastRequest=now
@@ -54,8 +59,15 @@ RunService.Heartbeat:Connect(function(dt)
  local elapsed=accumulator;accumulator=0;local now=os.clock()
  for player,s in pairs(records) do
   local h,root=s.h,s.root
-  if player:GetAttribute('ZIVRACombatMode') and player:GetAttribute('ZIVRACombatMode')~='Lobby' then s.lastPosition=root.Position;s.window=0;s.travel=0;s.slideEnd=0;s.intent='Walk';continue end
+  if not active(player) then
+   s.lastPosition=root.Position;s.window=0;s.travel=0;s.slideEnd=0;s.intent='Walk';s.airUntil=0
+   if h.Parent and player:GetAttribute('ZIVRACombatMode')=='Lobby' then h.WalkSpeed=C.WalkSpeed end
+   s.character:SetAttribute('ZIVRAMovement','Idle')
+   continue
+  end
   if not root.Parent or player.Character~=s.character then records[player]=nil;continue end
+  local traversal=s.character:GetAttribute('ZIVRATraversing')
+  if traversal then s.character:SetAttribute('ZIVRAMovement',traversal);s.lastPosition=root.Position;continue end
   local state=h:GetState()
   if h.Sit or root.Anchored or state==Enum.HumanoidStateType.Swimming or state==Enum.HumanoidStateType.Climbing or state==Enum.HumanoidStateType.Physics then
    s.slideEnd=0;s.lastPosition=root.Position;s.window=0;s.travel=0;continue

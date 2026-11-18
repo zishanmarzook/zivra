@@ -67,4 +67,59 @@ Combat.cleanup(p)
 check(#Combat.Shots==3 and Combat.Shots[1].cancelled and Combat.Shots[3].cancelled,"Round cleanup must not mutate the projectile array inside a lethal-hit iteration")
 check(not Combat.Shots[2].cancelled,"Cleanup cannot cancel another player's shots")
 check(#Combat.Deployments==1 and Combat.Deployments[1].cancelled and destroyed,"Deployment cleanup marks cancellation while removing its physical object")
+
+local duelId={}
+local victim,victimHealth=player()
+local victimProfile={loadout=table.clone(W.Default),owned=table.clone(profile.owned),daily={},settings={},stats={kills=0},currency=0}
+Combat.add(victim,victimProfile,false)
+local opposing=Combat.States[victim]
+victim.Character.GetAttribute=function() return nil end
+victimHealth.TakeDamage=function(self,amount) self.Health=math.max(0,self.Health-amount) end
+Players.GetPlayerFromCharacter=function(_,model) return model==victim.Character and victim or nil end
+local hitPart={Name="UpperTorso",Position=Vector3.new(0,7,-15),
+	FindFirstAncestorOfClass=function() return victim.Character end}
+workspace.Raycast=function() return {Instance=hitPart,Position=hitPart.Position} end
+
+s.mode="Duel"
+s.duel={id=duelId,phase="Countdown"}
+s.loadout[1]="shotgun"
+s.slot=1
+opposing.mode="Duel"
+opposing.duel={id=duelId,phase="Countdown"}
+Combat.reset(p)
+advance(1)
+Combat.fire(p,dir)
+check(s.ammo.shotgun==6 and victimHealth.Health==100,"Countdown rejects fire before consuming ammo")
+s.duel.phase="Active"
+opposing.duel.phase="Active"
+Combat.fire(p,dir)
+check(s.ammo.shotgun==5 and victimHealth.Health==78,"One shell consumes one round and aggregates eight pellet hits")
+local hitCount=0
+for _,event in ipairs(events) do if event[1]=="Hit" then hitCount+=1 end end
+check(hitCount==1,"Pellets produce one hit confirmation for the target")
+
+opposing.duel.id={}
+advance(1)
+Combat.fire(p,dir)
+check(victimHealth.Health==78,"A player in a separate match takes no damage")
+opposing.duel.id=duelId
+opposing.duel.phase="RoundEnd"
+advance(1)
+Combat.fire(p,dir)
+check(victimHealth.Health==78,"A target in an ended round takes no damage")
+
+opposing.duel.phase="Active"
+s.loadout[1]="sniper_rifle"
+Combat.reset(p)
+advance(1)
+victimHealth.Health=100
+Combat.fire(p,dir)
+check(victimHealth.Health==45,"The sniper delivers 55 torso damage at test distance")
+advance(1.4)
+victimHealth.Health=100
+hitPart.Name="Head"
+profile.daily.kills=0
+profile.stats={kills=0}
+Combat.fire(p,dir)
+check(victimHealth.Health==0 and profile.stats.kills==1,"A direct sniper headshot eliminates once")
 print("PASS",total,"combat lifecycle assertions with mocked engine")

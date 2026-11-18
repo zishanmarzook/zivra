@@ -5,7 +5,7 @@ function Viewmodel.equip(id)
 	if Viewmodel.id==id and Viewmodel.model then return end
 	if Viewmodel.model then Viewmodel.model:Destroy() end
 	Viewmodel.id=id; Viewmodel.def=Weapons.ById[id]; Viewmodel.model=Models.build(Viewmodel.def,true)
-	Viewmodel.parts=Viewmodel.model:GetChildren(); Viewmodel.equipped=os.clock(); Viewmodel.kick=0
+	Viewmodel.parts=Viewmodel.model:GetChildren(); Viewmodel.equipped=os.clock(); Viewmodel.kick=0; Viewmodel.reloadStart=nil; Viewmodel.sway=Vector2.zero
 	Viewmodel.model.Parent=workspace.CurrentCamera
 end
 function Viewmodel.fire()
@@ -25,7 +25,9 @@ function Viewmodel.step(dt,humanoid,menu)
 	local reloadPose=reload<1 and math.sin(reload*math.pi) or 0
 	local equip=math.max(0,1-(now-Viewmodel.equipped)/0.25)
 	local inspect=math.clamp(((Viewmodel.inspectUntil or 0)-now),0,1)
-	local mouse=game.UserInputService:GetMouseDelta()
+	local raw=game.UserInputService:GetMouseDelta()
+    Viewmodel.sway=(Viewmodel.sway or Vector2.zero):Lerp(raw,1-math.exp(-dt*16))
+    local mouse=Viewmodel.sway
 	local melee=d.kind=="melee" and math.max(0,1-(now-(Viewmodel.fired or 0))/0.3) or 0
 	local bob=math.sin(now*(humanoid and humanoid.WalkSpeed or 16)*0.6)*0.025*movement
 	local pose=CFrame.new(Viewmodel.aim and 0.1 or 0.65,-0.7+bob-reloadPose*0.3-equip*0.7-Viewmodel.landing,-1.55+Viewmodel.kick)
@@ -37,7 +39,10 @@ function Viewmodel.step(dt,humanoid,menu)
 			local rest=p:GetAttribute("Rest")
 			if rest then
 				local offset=CFrame.identity
-				if p.Name=="Magazine" then offset=CFrame.new(0,-reloadPose*0.8,reloadPose*0.1)
+				if p.Name=="Magazine" then
+                    local drop=reload<0.25 and reload/0.25 or reload<0.65 and 1 or math.max(0,(0.9-reload)/0.25)
+                    offset=CFrame.new(0,-drop*0.85,drop*0.12)*CFrame.Angles(0,0,-drop*0.12)
+                elseif p.Name=="LeftArm" then offset=CFrame.new(0,-reloadPose*0.3,reloadPose*0.35)
 				elseif p.Name=="Slide" then offset=CFrame.new(0,0,Viewmodel.kick*2)
 				elseif p.Name=="Rotor" then offset=rest:Inverse()*CFrame.Angles(0,0,now*(Viewmodel.firing and 35 or 3))*rest
 				elseif p.Name=="Core" then offset=CFrame.Angles(0,now*2,0)

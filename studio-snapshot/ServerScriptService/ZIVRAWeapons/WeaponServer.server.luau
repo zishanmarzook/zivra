@@ -1,3 +1,4 @@
+if require(game:GetService('ReplicatedStorage'):WaitForChild('ZIVRA').Config).Launch1v1 then return end
 -- ServerScriptService.ZIVRAWeapons.WeaponServer
 local Players=game:GetService('Players')
 local Shared=game.ReplicatedStorage:WaitForChild('ZIVRAWeapons')

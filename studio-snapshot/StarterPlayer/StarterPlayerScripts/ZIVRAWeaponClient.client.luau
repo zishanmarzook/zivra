@@ -1,3 +1,4 @@
+if require(game:GetService('ReplicatedStorage'):WaitForChild('ZIVRA').Config).Launch1v1 then return end
 -- StarterPlayer.StarterPlayerScripts.ZIVRAWeaponClient
 local Players=game:GetService('Players')
 local UIS=game:GetService('UserInputService')

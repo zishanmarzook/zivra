@@ -1,5 +1,6 @@
 -- Initial playtest balance. IDs are stable persistence keys, never display names.
 local Weapons = { Categories = {"Primary", "Secondary", "Melee", "Utility"}, List = {}, ById = {} }
+Weapons.Launch={assault_rifle=true,sniper_rifle=true,shotgun=true,revolver=true,handgun=true,knife=true,medkit=true}
 local function add(id, name, slot, kind, values)
 	local d = {id=id, name=name, slot=slot, kind=kind, rarity="Standard", trial=true,
 		description=name, equip=0.22, recovery=0.1, range=300, damage=20, headshot=1.5,
@@ -7,7 +8,7 @@ local function add(id, name, slot, kind, values)
 		-- Original procedural blockouts; commissioned animation/audio assets still required.
 		assets={model="Procedural", animation="Procedural", audio={}}, productionReady=false}
 	for k,v in pairs(values or {}) do d[k]=v end
-	d.unlock = ({assault_rifle=true,handgun=true,knife=true,medkit=true})[id] and "Starter" or "Range trial only; unlock economy pending"
+	d.unlock = Weapons.Launch[id] and "Starter" or "Range trial only; unlock economy pending"
 	Weapons.ById[id]=d
 	table.insert(Weapons.List,d)
 end
@@ -17,9 +18,10 @@ local function gun(id,name,slot,kind,damage,mag,interval,extra)
 	add(id,name,slot,kind,v)
 end
 -- Primary: all 14 explicitly named items.
-gun("assault_rifle","Assault Rifle",1,"auto",20,30,0.1,{spread=0.7,bloom=2,recoil=1.1})
+gun("assault_rifle","Assault Rifle",1,"auto",17,30,0.1,{spread=0.7,bloom=2,recoil=1.1})
 gun("burst_rifle","Burst Rifle",1,"burst",18,27,0.09,{burst=3,burstPause=0.28,spread=0.35,recoil=1.5})
-gun("shotgun","Shotgun",1,"pellets",9,6,0.85,{pellets=8,spread=6,range=90,falloffStart=18,minDamageScale=0.08,reload=2.6,recoil=3})
+gun("sniper_rifle","Sniper Rifle",1,"semi",55,5,1.35,{headshot=2,spread=0.05,reload=2.8,recoil=3.6,falloffStart=300})
+gun("shotgun","Shotgun",1,"pellets",2.75,6,0.85,{pellets=8,spread=3.2,range=90,falloffStart=18,minDamageScale=0.08,reload=2.6,recoil=3})
 gun("minigun","Minigun",1,"auto",9,120,1/15,{spinup=0.7,heatPerShot=0.035,cooling=0.22,spread=3,moveScale=0.65,reload=3.4})
 gun("rpg","RPG",1,"rocket",75,1,1.6,{speed=115,gravity=0,radius=16,range=450,reload=3,recoil=4})
 gun("grenade_launcher","Grenade Launcher",1,"grenade",60,4,0.8,{speed=85,gravity=0.65,radius=13,fuse=2.1,bounce=true,reload=2.8})
@@ -33,7 +35,7 @@ gun("paintball","Paintball",1,"bolt",13,35,0.12,{speed=190,gravity=0.08,paint=tr
 gun("gunblade","Gunblade",1,"semi",23,8,0.4,{slash=42,meleeRange=7,rarity="Experimental"})
 -- Secondary: all 11 explicitly named items.
 gun("handgun","Handgun",2,"semi",25,12,0.24,{reload=1.3,spread=0.4})
-gun("revolver","Revolver",2,"semi",45,6,0.7,{reload=2.5,recoil=2.5,spread=0.2})
+gun("revolver","Revolver",2,"semi",34,6,0.7,{reload=2.5,recoil=2.5,spread=0.2})
 gun("shorty","Shorty",2,"pellets",8,2,0.65,{pellets=7,spread=8,range=55,falloffStart=10,minDamageScale=0.05,reload=1.7})
 gun("uzi","Uzi",2,"auto",12,25,0.075,{spread=1.8,bloom=3,reload=1.4})
 gun("spray","Spray",2,"auto",10,35,0.065,{spread=2.2,bloom=5,reload=1.7})
@@ -44,13 +46,13 @@ gun("slingshot","Slingshot",2,"bolt",22,1,0.35,{speed=110,gravity=0.6,reload=0.3
 gun("flare_gun","Flare Gun",2,"bolt",24,1,1,{speed=100,gravity=0.35,flare=true,reload=2.8})
 add("daggers","Daggers",2,"melee",{damage=20,range=4.5,width=3,interval=0.28,windup=0.1,dual=true})
 local melee={
-	{"knife","Knife",35,5,3,0.48,0.12}, {"katana","Katana",50,7,5,0.8,0.24},
+	{"knife","Knife",50,5,3,0.48,0.12}, {"katana","Katana",50,7,5,0.8,0.24},
 	{"fists","Fists",18,3.8,3,0.3,0.1}, {"battle_axe","Battle Axe",65,6.5,6,1.2,0.4},
 	{"maul","Maul",75,6,5,1.5,0.55}, {"spear","Spear",42,9,2,0.8,0.22},
 	{"trowel","Trowel",24,4.5,3,0.38,0.1}, {"chainsaw","Chainsaw",8,4.5,3,0.13,0.04},
 	{"riot_shield","Riot Shield",20,4,4,0.9,0.25}, {"scythe","Scythe",55,7.5,8,1.1,0.35}}
 for _,m in ipairs(melee) do add(m[1],m[2],3,"melee",{damage=m[3],range=m[4],width=m[5],interval=m[6],windup=m[7],
-	continuous=m[1]=="chainsaw",heatPerShot=m[1]=="chainsaw" and 0.045 or nil,cooling=0.3,shield=m[1]=="riot_shield"}) end
+	headshot=m[1]=="knife" and 1 or 1.5,continuous=m[1]=="chainsaw",heatPerShot=m[1]=="chainsaw" and 0.045 or nil,cooling=0.3,shield=m[1]=="riot_shield"}) end
 -- Utility charges reset on legitimate mode/round entry, never from the client.
 add("grappler","Grappler",4,"grapple",{range=85,cooldown=7,charges=20,duration=1.8})
 add("medkit","Medkit",4,"heal",{heal=50,windup=2,cooldown=12,charges=2})
@@ -65,4 +67,8 @@ add("satchel","Satchel",4,"satchel",{damage=70,range=12,radius=15,cooldown=3,cha
 add("smoke_grenade","Smoke Grenade",4,"smoke",{speed=65,gravity=1,fuse=1.8,radius=12,lifetime=8,bounce=true,cooldown=8,charges=2})
 add("war_horn","War Horn",4,"horn",{range=30,cooldown=20,charges=2,duration=4,rarity="Signature"})
 Weapons.Default={"assault_rifle","handgun","knife","medkit"}
+-- Free Creator Store audio; source/permission records in docs/FREE_POLISH.md.
+Weapons.ById.assault_rifle.assets.audio.fire="rbxassetid://113879008765178"
+Weapons.ById.handgun.assets.audio.fire="rbxassetid://113879008765178"
+Weapons.ById.knife.assets.audio.fire="rbxassetid://79992355082486"
 return Weapons

@@ -9,6 +9,11 @@ ZIVRA]=],class=[=[
 Folder]=],files={{name=[=[
 Config]=],source=[=[
 return {
+ Launch1v1=true,
+ Duel={
+  WinsRequired=3, VersusSeconds=2, CountdownSeconds=3, RoundSeconds=90,
+  IntermissionSeconds=3, RespawnGraceSeconds=14, ResultSeconds=22, MaxDraws=3,
+ },
  Countdown=10, ScanInterval=0.2, DepartureCooldown=5,
  -- Set DestinationPlaceId only after the corresponding map exists.
  Stations={
@@ -74,7 +79,68 @@ function Models.build(def,arms)
 		b("Sight",0.1,0.13,0.1,offset,0.45,0.3,metal)
 	end
 	local id=def.id
-	if def.kind=="melee" then
+	if id=="assault_rifle" or id=="handgun" then
+        local rifle=id=="assault_rifle"
+        accent=Color3.fromRGB(65,176,193)
+        b("Receiver",rifle and 0.46 or 0.34,0.38,rifle and 1.4 or 0.9,0,0,0,rifle and tan or metal)
+        b("Slide",rifle and 0.38 or 0.36,0.17,rifle and 1.25 or 1.05,0,0.25,-0.03,Color3.fromRGB(74,82,92))
+        b("Grip",0.28,0.65,0.38,0,-0.46,0.3,metal,CFrame.Angles(-0.2,0,0))
+        b("Magazine",0.24,rifle and 0.7 or 0.48,0.32,0,-0.5,rifle and -0.3 or 0.31,Color3.fromRGB(29,34,40),rifle and CFrame.Angles(-0.21,0,0))
+        b("TriggerGuard",0.08,0.08,0.45,0,-0.32,-0.05,steel)
+        b("Trigger",0.07,0.18,0.07,0,-0.21,0.05,steel,CFrame.Angles(-0.2,0,0))
+        b("FrontSight",0.08,0.13,0.09,0,0.4,rifle and -1.4 or -0.45,steel)
+        for _,x in {-0.12,0.12} do b("RearSight",0.06,0.12,0.12,x,0.4,0.35,metal) end
+        local muzzle=rifle and -2.05 or -0.7
+        b("Barrel",0.16,0.16,rifle and 1.2 or 0.35,0,0.12,rifle and -1.5 or -0.56,steel)
+        b("Muzzle",0.23,0.23,0.18,0,0.12,muzzle,metal)
+        b("Bore",0.11,0.11,0.01,0,0.12,muzzle-0.096,Color3.fromRGB(8,10,13))
+        b("Indicator",0.02,0.055,0.2,0.24,0.1,-0.15,accent)
+        if rifle then
+            b("Stock",0.34,0.42,0.8,0,-0.04,1.02,metal)
+            b("Buttpad",0.38,0.52,0.12,0,-0.06,1.46,Color3.fromRGB(20,24,28))
+            b("Handguard",0.42,0.36,0.85,0,0,-1.05,metal)
+            for i=1,4 do for _,x in {-0.218,0.218} do b("Vent",0.015,0.12,0.1,x,0.03,-0.7-i*0.17,Color3.fromRGB(12,17,22)) end end
+            b("OpticBase",0.26,0.09,0.35,0,0.4,0,metal)
+            for _,x in {-0.13,0.13} do b("OpticFrame",0.05,0.22,0.18,x,0.52,0,steel) end
+            b("OpticTop",0.3,0.04,0.18,0,0.65,0,steel)
+        end
+        for i=1,4 do b("GripRidge",0.29,0.035,0.035,0,-0.27-i*0.1,0.51,steel) end
+    elseif id=="sniper_rifle" or id=="shotgun" or id=="revolver" then
+		local sniper=id=="sniper_rifle"
+		local shotgun=id=="shotgun"
+		local length=sniper and 2.9 or shotgun and 1.95 or 1.34
+		local finish=sniper and Color3.fromRGB(103,132,137) or shotgun and Color3.fromRGB(153,102,55) or steel
+		b("Receiver",0.44,0.42,sniper and 1.65 or 1.18,0,0,0,finish)
+		b("Grip",0.31,0.66,0.38,0,-0.42,0.4,metal,CFrame.Angles(-0.24,0,0))
+		b("TriggerGuard",0.16,0.08,0.44,0,-0.44,0.04,metal)
+		b("Barrel",0.2,0.2,length,0,0.12,-length*0.5-0.34,metal)
+		b("Muzzle",0.25,0.25,0.14,0,0.12,-length-0.34,metal)
+		b("Bore",0.13,0.13,0.01,0,0.12,-length-0.414,Color3.fromRGB(10,14,18))
+		if sniper or shotgun then
+			b("Stock",0.32,0.32,0.85,0,-0.03,1.05,finish)
+			b("Buttpad",0.35,0.48,0.15,0,-0.08,1.46,metal)
+		end
+		if sniper then
+			b("Magazine",0.3,0.53,0.44,0,-0.39,-0.26,metal)
+			b("Bolt",0.24,0.12,0.13,0.32,0.16,0.16,steel)
+			box("Scope",Vector3.new(1.42,0.4,0.4),Vector3.new(0,0.58,-0.26),metal,CFrame.Angles(0,math.pi/2,0),Enum.PartType.Cylinder)
+			box("ScopeRim",Vector3.new(0.19,0.55,0.55),Vector3.new(0,0.58,-0.92),finish,CFrame.Angles(0,math.pi/2,0),Enum.PartType.Cylinder)
+		elseif shotgun then
+			b("MagazineTube",0.16,0.17,1.54,0,-0.12,-1.34,steel)
+			b("Pump",0.47,0.33,0.82,0,-0.13,-1.19,finish)
+			for i=1,5 do b("Pump rib",0.48,0.035,0.05,0,0.037,-0.89-i*0.09,metal) end
+		else
+			box("Cylinder",Vector3.new(0.51,0.58,0.58),Vector3.new(0,0.03,-0.08),metal,CFrame.Angles(0,math.pi/2,0),Enum.PartType.Cylinder)
+			b("FrontSight",0.065,0.13,0.1,0,0.26,-1.46,steel)
+		end
+	elseif id=="knife" then
+        b("Grip",0.24,0.72,0.22,0,-0.55,0,metal)
+        b("Pommel",0.28,0.12,0.25,0,-0.94,0,steel)
+        b("Guard",0.55,0.09,0.28,0,-0.15,0,metal)
+        blade("Blade",1.1,0.28,0,0.44,0)
+        b("Fuller",0.055,0.8,0.13,0,0.42,0,Color3.fromRGB(74,86,97))
+        for i=1,5 do b("GripRidge",0.26,0.045,0.24,0,-0.2-i*0.12,0,Color3.fromRGB(24,30,36)) end
+    elseif def.kind=="melee" then
 		if id=="fists" then
 			b("LeftFist",0.5,0.6,0.65,-0.65,0,-0.25,tan); b("RightFist",0.5,0.6,0.65,0.65,0,-0.25,tan)
 		elseif id=="riot_shield" then
@@ -171,6 +237,9 @@ function Rules.falloff(def,distance)
 	local t=math.clamp((distance-start)/math.max(1,def.range-start),0,1)
 	return 1-t*(1-(def.minDamageScale or 1))
 end
+function Rules.hitDamage(def,distance,headshot)
+	return def.damage*Rules.falloff(def,distance)*(headshot and (def.headshot or 1) or 1)
+end
 function Rules.attack(state,def,now)
 	if not state.alive or state.menu or state.mode=="Lobby" then return false,"Combat unavailable" end
 	if now<state.busy or now<state.nextShot then return false,"Recovering" end
@@ -207,6 +276,7 @@ return { Background=Color3.fromRGB(12,16,23), Surface=Color3.fromRGB(22,29,39),
 Weapons]=],source=[=[
 -- Initial playtest balance. IDs are stable persistence keys, never display names.
 local Weapons = { Categories = {"Primary", "Secondary", "Melee", "Utility"}, List = {}, ById = {} }
+Weapons.Launch={assault_rifle=true,sniper_rifle=true,shotgun=true,revolver=true,handgun=true,knife=true,medkit=true}
 local function add(id, name, slot, kind, values)
 	local d = {id=id, name=name, slot=slot, kind=kind, rarity="Standard", trial=true,
 		description=name, equip=0.22, recovery=0.1, range=300, damage=20, headshot=1.5,
@@ -214,7 +284,7 @@ local function add(id, name, slot, kind, values)
 		-- Original procedural blockouts; commissioned animation/audio assets still required.
 		assets={model="Procedural", animation="Procedural", audio={}}, productionReady=false}
 	for k,v in pairs(values or {}) do d[k]=v end
-	d.unlock = ({assault_rifle=true,handgun=true,knife=true,medkit=true})[id] and "Starter" or "Range trial only; unlock economy pending"
+	d.unlock = Weapons.Launch[id] and "Starter" or "Range trial only; unlock economy pending"
 	Weapons.ById[id]=d
 	table.insert(Weapons.List,d)
 end
@@ -224,9 +294,10 @@ local function gun(id,name,slot,kind,damage,mag,interval,extra)
 	add(id,name,slot,kind,v)
 end
 -- Primary: all 14 explicitly named items.
-gun("assault_rifle","Assault Rifle",1,"auto",20,30,0.1,{spread=0.7,bloom=2,recoil=1.1})
+gun("assault_rifle","Assault Rifle",1,"auto",17,30,0.1,{spread=0.7,bloom=2,recoil=1.1})
 gun("burst_rifle","Burst Rifle",1,"burst",18,27,0.09,{burst=3,burstPause=0.28,spread=0.35,recoil=1.5})
-gun("shotgun","Shotgun",1,"pellets",9,6,0.85,{pellets=8,spread=6,range=90,falloffStart=18,minDamageScale=0.08,reload=2.6,recoil=3})
+gun("sniper_rifle","Sniper Rifle",1,"semi",55,5,1.35,{headshot=2,spread=0.05,reload=2.8,recoil=3.6,falloffStart=300})
+gun("shotgun","Shotgun",1,"pellets",2.75,6,0.85,{pellets=8,spread=3.2,range=90,falloffStart=18,minDamageScale=0.08,reload=2.6,recoil=3})
 gun("minigun","Minigun",1,"auto",9,120,1/15,{spinup=0.7,heatPerShot=0.035,cooling=0.22,spread=3,moveScale=0.65,reload=3.4})
 gun("rpg","RPG",1,"rocket",75,1,1.6,{speed=115,gravity=0,radius=16,range=450,reload=3,recoil=4})
 gun("grenade_launcher","Grenade Launcher",1,"grenade",60,4,0.8,{speed=85,gravity=0.65,radius=13,fuse=2.1,bounce=true,reload=2.8})
@@ -240,7 +311,7 @@ gun("paintball","Paintball",1,"bolt",13,35,0.12,{speed=190,gravity=0.08,paint=tr
 gun("gunblade","Gunblade",1,"semi",23,8,0.4,{slash=42,meleeRange=7,rarity="Experimental"})
 -- Secondary: all 11 explicitly named items.
 gun("handgun","Handgun",2,"semi",25,12,0.24,{reload=1.3,spread=0.4})
-gun("revolver","Revolver",2,"semi",45,6,0.7,{reload=2.5,recoil=2.5,spread=0.2})
+gun("revolver","Revolver",2,"semi",34,6,0.7,{reload=2.5,recoil=2.5,spread=0.2})
 gun("shorty","Shorty",2,"pellets",8,2,0.65,{pellets=7,spread=8,range=55,falloffStart=10,minDamageScale=0.05,reload=1.7})
 gun("uzi","Uzi",2,"auto",12,25,0.075,{spread=1.8,bloom=3,reload=1.4})
 gun("spray","Spray",2,"auto",10,35,0.065,{spread=2.2,bloom=5,reload=1.7})
@@ -251,13 +322,13 @@ gun("slingshot","Slingshot",2,"bolt",22,1,0.35,{speed=110,gravity=0.6,reload=0.3
 gun("flare_gun","Flare Gun",2,"bolt",24,1,1,{speed=100,gravity=0.35,flare=true,reload=2.8})
 add("daggers","Daggers",2,"melee",{damage=20,range=4.5,width=3,interval=0.28,windup=0.1,dual=true})
 local melee={
-	{"knife","Knife",35,5,3,0.48,0.12}, {"katana","Katana",50,7,5,0.8,0.24},
+	{"knife","Knife",50,5,3,0.48,0.12}, {"katana","Katana",50,7,5,0.8,0.24},
 	{"fists","Fists",18,3.8,3,0.3,0.1}, {"battle_axe","Battle Axe",65,6.5,6,1.2,0.4},
 	{"maul","Maul",75,6,5,1.5,0.55}, {"spear","Spear",42,9,2,0.8,0.22},
 	{"trowel","Trowel",24,4.5,3,0.38,0.1}, {"chainsaw","Chainsaw",8,4.5,3,0.13,0.04},
 	{"riot_shield","Riot Shield",20,4,4,0.9,0.25}, {"scythe","Scythe",55,7.5,8,1.1,0.35}}
 for _,m in ipairs(melee) do add(m[1],m[2],3,"melee",{damage=m[3],range=m[4],width=m[5],interval=m[6],windup=m[7],
-	continuous=m[1]=="chainsaw",heatPerShot=m[1]=="chainsaw" and 0.045 or nil,cooling=0.3,shield=m[1]=="riot_shield"}) end
+	headshot=m[1]=="knife" and 1 or 1.5,continuous=m[1]=="chainsaw",heatPerShot=m[1]=="chainsaw" and 0.045 or nil,cooling=0.3,shield=m[1]=="riot_shield"}) end
 -- Utility charges reset on legitimate mode/round entry, never from the client.
 add("grappler","Grappler",4,"grapple",{range=85,cooldown=7,charges=20,duration=1.8})
 add("medkit","Medkit",4,"heal",{heal=50,windup=2,cooldown=12,charges=2})
@@ -272,6 +343,10 @@ add("satchel","Satchel",4,"satchel",{damage=70,range=12,radius=15,cooldown=3,cha
 add("smoke_grenade","Smoke Grenade",4,"smoke",{speed=65,gravity=1,fuse=1.8,radius=12,lifetime=8,bounce=true,cooldown=8,charges=2})
 add("war_horn","War Horn",4,"horn",{range=30,cooldown=20,charges=2,duration=4,rarity="Signature"})
 Weapons.Default={"assault_rifle","handgun","knife","medkit"}
+-- Free Creator Store audio; source/permission records in docs/FREE_POLISH.md.
+Weapons.ById.assault_rifle.assets.audio.fire="rbxassetid://113879008765178"
+Weapons.ById.handgun.assets.audio.fire="rbxassetid://113879008765178"
+Weapons.ById.knife.assets.audio.fire="rbxassetid://79992355082486"
 return Weapons
 ]=]}}},
 {service=[=[
@@ -308,7 +383,7 @@ function Combat.snapshot(player,message)
 		reserve=s.reserve,charges=s.charges,heat=s.heat,busy=math.max(0,s.busy-clock()),cooldowns=s.cooldowns,
 		reloading=s.reloadEpoch==s.epoch and clock()<s.busy,
 		currency=p.currency,daily=Combat.Profiles.daily(p),settings=p.settings,stats=s.rangeStats,
-		message=message,queued=s.queued,serverTime=clock(),offline=s.offline})
+		message=message,queued=s.queued~=nil and s.queued~=false,duel=s.duelView,serverTime=clock(),offline=s.offline})
 end
 function Combat.add(player,profile,offline)
 	Combat.States[player]={profile=profile,mode="Lobby",loadout=table.clone(profile.loadout),slot=1,
@@ -358,9 +433,14 @@ function Combat.transition(player,mode,cf)
 	if r then player.Character:PivotTo(cf); r.AssemblyLinearVelocity=Vector3.zero; s.lastPosition=cf.Position end
 	Combat.reset(player)
 end
+function Combat.permitted(s)
+	return s.mode=="Range" or s.mode=="Duel" and s.duel and s.duel.phase=="Active"
+end
 function Combat.equip(player,id)
 	local s=Combat.States[player]; local d=Weapons.ById[id]
 	if not s or not d or not Rules.allowed(d,s.profile.owned,s.mode) then return end
+	if s.mode~="Range" and not Weapons.Launch[d.id] then return end
+	if s.mode=="Duel" and not Combat.permitted(s) then return end
 	if s.mode=="Duel" and s.loadout[d.slot]~=id then return end
 	if s.loadout[d.slot]~=id then
 		s.loadout[d.slot]=id
@@ -394,17 +474,17 @@ function Combat.canDamage(owner,model)
 	if model:GetAttribute("ZIVRA_Target") then return s.mode=="Range" end
 	local victim=Players:GetPlayerFromCharacter(model)
 	local other=victim and Combat.States[victim]
-	return victim~=owner and s.mode=="Duel" and other and other.mode=="Duel" and s.match and s.match==other.match
-		and (owner.Team==nil or owner.Team~=victim.Team or owner.Neutral or victim.Neutral)
+	return victim~=owner and other and Combat.permitted(s) and Combat.permitted(other)
+		and s.duel and other.duel and s.duel.id==other.duel.id
 end
-function Combat.damage(owner,model,amount,hitpart,from,def,secondary)
+function Combat.damage(owner,model,amount,hitpart,from,def,secondary,scaledHeadshot)
 	if not Combat.canDamage(owner,model) then return end
 	local h=model:FindFirstChildOfClass("Humanoid"); if not h or h.Health<=0 then return end
 	if model:FindFirstChildOfClass("ForceField") then return end
 	local s=Combat.States[owner]; local victim=Players:GetPlayerFromCharacter(model); local vs=victim and Combat.States[victim]
 	local root=model:FindFirstChild("HumanoidRootPart")
 	local headshot=hitpart and hitpart.Name=="Head"
-	if headshot then amount*=def.headshot or 1 end
+	if headshot and not scaledHeadshot then amount*=def.headshot or 1 end
 	if vs and vs.blocking and root and from and (from-root.Position).Magnitude>0.1 then
 		if root.CFrame.LookVector:Dot((from-root.Position).Unit)>0.45 then
 			amount*=def.radius and 0.7 or 0.25
@@ -436,8 +516,8 @@ function Combat.damage(owner,model,amount,hitpart,from,def,secondary)
 		if h.Health<=0 and not vs.eliminated then
 			vs.eliminated=true
 			local daily=Combat.Profiles.daily(s.profile); daily.kills+=1; s.profile.stats.kills+=1
-			s.profile.currency+=10; Combat.snapshot(owner,"Elimination +10")
-			if Combat.onElimination then Combat.onElimination(owner,victim) end
+			s.profile.currency+=10; Combat.snapshot(owner)
+			if Combat.onElimination then Combat.onElimination(owner,victim,headshot) end
 		end
 	end
 end
@@ -463,7 +543,7 @@ end
 function Combat.reload(player)
 	local s=Combat.States[player]; if not s then return end
 	local d=Weapons.ById[s.loadout[s.slot]]
-	if not Combat.alive(player) or s.menu or s.mode=="Lobby" or not d.magazine or clock()<s.busy or s.ammo[d.id]>=d.magazine or s.reserve[d.id]<=0 then return end
+	if not Combat.alive(player) or s.menu or not Combat.permitted(s) or not d.magazine or clock()<s.busy or s.ammo[d.id]>=d.magazine or s.reserve[d.id]<=0 then return end
 	s.epoch+=1; local epoch=s.epoch; s.reloadEpoch=epoch; s.busy=clock()+d.reload; s.trigger=nil; s.blocking=false
 	Combat.send(player,"Reload",{duration=d.reload}); Combat.snapshot(player)
 	task.delay(d.reload,function()
@@ -475,7 +555,7 @@ end
 function Combat.melee(player,dir,def)
 	local s=Combat.States[player]; local epoch=s.epoch
 	task.delay(def.windup or 0.16,function()
-		if Combat.States[player]~=s or s.epoch~=epoch or s.menu or not Combat.alive(player) then return end
+		if Combat.States[player]~=s or s.epoch~=epoch or s.menu or not Combat.permitted(s) or not Combat.alive(player) then return end
 		local _,_,root,head=Combat.alive(player)
 		local range=def.meleeRange or def.range
 		local overlap=OverlapParams.new(); overlap.FilterType=Enum.RaycastFilterType.Exclude; overlap.FilterDescendantsInstances={player.Character}
@@ -484,17 +564,20 @@ function Combat.melee(player,dir,def)
 		local seen={}
 		for _,p in ipairs(parts) do
 			local model=p:FindFirstAncestorOfClass("Model")
-			if model and not seen[model] and model:FindFirstChildOfClass("Humanoid") and (p.Position-head.Position).Magnitude<=range+2 then
-				seen[model]=true
-				if Combat.line(head.Position,p.Position,model,player) then Combat.damage(player,model,def.slash or def.damage,p,root.Position,def) end
+			if model and not seen[model] and model:FindFirstChildOfClass("Humanoid") and (p.Position-head.Position).Magnitude<=range then
+				if Combat.line(head.Position,p.Position,model,player) then
+					seen[model]=true
+					Combat.damage(player,model,def.slash or def.damage,p,root.Position,def)
+				end
 			end
 		end
 	end)
 end
 local rng=Random.new()
 function Combat.fire(player,dir,release)
-	local s=Combat.States[player]; if not s or not dir then return end
+	local s=Combat.States[player]; if not s or not dir or not Combat.permitted(s) then return end
 	local d=Weapons.ById[s.loadout[s.slot]]; local now=clock()
+	if s.mode=="Duel" and not Weapons.Launch[d.id] then return end
 	local alive,h,root,head=Combat.alive(player)
 	local allowed=Rules.attack({alive=alive,menu=s.menu,mode=s.mode,busy=s.busy,nextShot=s.nextShot,overheated=s.overheated,ammo=s.ammo[d.id] or 0},d,now)
 	if not allowed or s.blocking or s.grapple then return end
@@ -527,17 +610,32 @@ function Combat.fire(player,dir,release)
 		local movement=h.MoveDirection.Magnitude*0.8+(h.FloorMaterial==Enum.Material.Air and 2 or 0)
 		s.bloom=math.min((s.bloom or 0)+0.15,d.bloom or 1)
 		local spread=math.rad(d.spread+movement+(s.bloom or 0))
+		local hits={}
+		local params=Combat.params(player)
+		local frame=CFrame.lookAt(Vector3.zero,dir)
 		for _=1,d.pellets or 1 do
-			local frame=CFrame.lookAt(Vector3.zero,dir)
 			local radius=math.sqrt(rng:NextNumber())*spread; local angle=rng:NextNumber()*math.pi*2
 			local direction=(frame*CFrame.Angles(math.sin(angle)*radius,math.cos(angle)*radius,0)).LookVector
-			local hit=workspace:Raycast(head.Position,direction*d.range,Combat.params(player))
+			local hit=workspace:Raycast(head.Position,direction*d.range,params)
 			local finish=hit and hit.Position or head.Position+direction*d.range
 			Combat.fx("shot",{position=head.Position,finish=finish,id=d.id,owner=player.UserId})
 			if hit then
 				local model=hit.Instance:FindFirstAncestorOfClass("Model")
-				if model then Combat.damage(player,model,d.damage*Rules.falloff(d,(finish-head.Position).Magnitude),hit.Instance,head.Position,d) end
+				if model and Combat.canDamage(player,model) then
+					local headshot=hit.Instance.Name=="Head"
+					local amount=Rules.hitDamage(d,(finish-head.Position).Magnitude,headshot)
+					local aggregate=hits[model]
+					if not aggregate then
+						aggregate={amount=0,part=hit.Instance}
+						hits[model]=aggregate
+					end
+					aggregate.amount+=amount
+					if headshot then aggregate.part=hit.Instance end
+				end
 			end
+		end
+		for model,hit in pairs(hits) do
+			Combat.damage(player,model,hit.amount,hit.part,head.Position,d,false,true)
 		end
 	end
 	Combat.snapshot(player)
@@ -549,7 +647,7 @@ function Combat.trigger(player,on)
 	else s.trigger=nil end
 end
 function Combat.alternate(player,dir)
-	local s=Combat.States[player]; if not s or not Combat.alive(player) or s.mode=="Lobby" or s.menu or clock()<s.busy then return end
+	local s=Combat.States[player]; if not s or not Combat.alive(player) or not Combat.permitted(s) or s.menu or clock()<s.busy then return end
 	local d=Weapons.ById[s.loadout[s.slot]]
 	if d.slash and clock()>=s.nextShot then
 		s.nextShot=clock()+0.8; s.busy=s.nextShot; Combat.melee(player,dir,d); Combat.send(player,"Fired",{id=d.id,slash=true})
@@ -573,8 +671,8 @@ function Combat.step(dt,now)
 			if s.slowUntil and now<s.slowUntil then speed*=s.slowScale end
 			if s.buffUntil and now<s.buffUntil then speed*=1.15 end
 			if d.moveScale and now-(s.lastShot or 0)<0.25 then speed*=d.moveScale end
-			h.WalkSpeed=speed
-			if now<(s.slideUntil or 0) then
+			if s.mode=="Range" then h.WalkSpeed=speed end
+			if s.mode=="Range" and now<(s.slideUntil or 0) then
 				local v=s.slideDirection*28; r.AssemblyLinearVelocity=Vector3.new(v.X,r.AssemblyLinearVelocity.Y,v.Z)
 			end
 			if s.grapple then
@@ -595,7 +693,10 @@ function Combat.step(dt,now)
 				s.movementWindow=window
 				if not Combat.World.inBounds(r.Position,s.mode) then
 					local origin=s.mode=="Range" and Combat.World.Origin or Combat.World.ArenaOrigin
-					player.Character:PivotTo(CFrame.new(origin+Vector3.new(0,5,60))); r.AssemblyLinearVelocity=Vector3.zero
+					local fallback=s.mode=="Duel" and s.duel and Combat.World.spawn(s.duel.id:side(player),math.max(1,s.duel.id.round))
+						or CFrame.new(origin+Vector3.new(0,5,60))
+					player.Character:PivotTo(fallback); r.AssemblyLinearVelocity=Vector3.zero
+					s.movementWindow={position=r.Position,time=now}
 				end
 				s.lastPosition=r.Position
 			end
@@ -609,6 +710,85 @@ function Combat.step(dt,now)
 	end
 end
 return Combat
+]=]},
+{name=[=[
+Duel]=],source=[=[
+local Duel = {}
+Duel.__index = Duel
+
+function Duel.new(players, rules, now)
+	return setmetatable({
+		players = players,
+		rules = rules,
+		phase = "Versus",
+		deadline = now + rules.VersusSeconds,
+		score = {0, 0},
+		eliminations = {0, 0},
+		rematch = {},
+		round = 0,
+		draws = 0,
+	}, Duel)
+end
+
+function Duel:side(player)
+	return table.find(self.players, player)
+end
+
+function Duel:countdown(now)
+	self.round += 1
+	self.phase = "Countdown"
+	self.deadline = now + self.rules.CountdownSeconds
+	self.roundWinner = nil
+	self.reason = nil
+end
+
+function Duel:begin(now)
+	self.phase = "Active"
+	self.deadline = now + self.rules.RoundSeconds
+end
+
+function Duel:resolve(winner, reason, now)
+	if self.phase ~= "Active" then return false end
+	self.roundWinner = winner
+	self.reason = reason
+	if winner then
+		self.score[winner] += 1
+		if reason == "Elimination" then self.eliminations[winner] += 1 end
+	end
+	if not winner then self.draws += 1 end
+	if self.draws >= self.rules.MaxDraws then
+		self:finish(nil, "Draw limit", now)
+	elseif winner and self.score[winner] >= self.rules.WinsRequired then
+		self:finish(winner, reason, now)
+	else
+		self.phase = "RoundEnd"
+		self.deadline = now + self.rules.IntermissionSeconds
+	end
+	return true
+end
+
+function Duel:finish(winner, reason, now)
+	self.phase = "Result"
+	self.winner = winner
+	self.rematchAllowed = winner ~= nil or reason == "Draw limit"
+	self.reason = reason
+	self.deadline = now + self.rules.ResultSeconds
+end
+
+function Duel:timeout(firstHealth, secondHealth, now)
+	local winner
+	if firstHealth ~= secondHealth then winner = firstHealth > secondHealth and 1 or 2 end
+	return self:resolve(winner, winner and "Time limit" or "Draw", now)
+end
+
+function Duel:vote(player)
+	local side = self:side(player)
+	if self.phase ~= "Result" or not side or not self.rematchAllowed then return false end
+	self.rematch[side] = true
+	return self.rematch[1] == true and self.rematch[2] == true
+end
+
+return Duel
 ]=]},
 {name=[=[
 HeldModels]=],source=[=[
@@ -643,7 +823,7 @@ local Store=DataStoreService:GetDataStore("ZIVRA_Profiles_v1")
 local Profiles={Sessions={}}
 local function defaults()
 	local owned={}
-	for _,id in ipairs(Weapons.Default) do owned[id]=true end
+	for id in pairs(Weapons.Launch) do owned[id]=true end
 	return {version=1,owned=owned,loadout=table.clone(Weapons.Default),currency=0,
 		settings={quality="Automatic",reduceFlash=true,volume=0.6,sensitivity=1},favorites={},
 		daily=Rules.daily(math.floor(os.time()/86400)),stats={kills=0,wins=0,duels=0}}
@@ -660,11 +840,12 @@ local function migrate(raw)
 	for k,v in pairs(initial.settings) do if p.settings[k]==nil then p.settings[k]=v end end
 	for k in pairs(initial.stats) do assert(type(p.stats[k])=="number" and p.stats[k]>=0,"Malformed statistics") end
 	assert(type(p.owned)=="table" and type(p.loadout)=="table","Malformed inventory")
+	for id in pairs(Weapons.Launch) do p.owned[id]=true end
 	local loadout={}
 	for i,id in ipairs(Weapons.Default) do
 		p.owned[id]=true
 		local d=Weapons.ById[p.loadout[i]]
-		loadout[i]=d and d.slot==i and p.owned[d.id]==true and d.id or id
+		loadout[i]=d and d.slot==i and Weapons.Launch[d.id] and d.id or id
 	end
 	p.loadout=loadout
 	if not ({Automatic=true,Low=true,Medium=true,High=true})[p.settings.quality] then p.settings.quality="Automatic" end
@@ -822,6 +1003,85 @@ end
 return Projectiles
 ]=]},
 {name=[=[
+Traversal]=],source=[=[
+local RunService = game:GetService("RunService")
+
+local Traversal = {}
+
+function Traversal.find(character, root, humanoid, direction, arena)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = {arena}
+	params.RespectCanCollide = true
+
+	local stance = root.Size.Y * 0.5 + humanoid.HipHeight
+	local feet = root.Position - Vector3.yAxis * stance
+	local probe = feet + Vector3.yAxis * 0.8
+	local face = workspace:Raycast(probe, direction * 4, params)
+	if not face then
+		face = workspace:Raycast(probe + Vector3.yAxis * 2, direction * 4, params)
+	end
+	if not face or math.abs(face.Normal.Y) > 0.25 then return nil end
+
+	local ledge = face.Position + direction * 1.5
+	local top = workspace:Raycast(Vector3.new(ledge.X, feet.Y + 6.6, ledge.Z), -Vector3.yAxis * 7, params)
+	if not top or top.Instance ~= face.Instance or top.Normal.Y < 0.9 then return nil end
+	local rise = top.Position.Y - feet.Y
+	if rise < 1.15 or rise > 5.8 then return nil end
+
+	local lift = Vector3.new(root.Position.X, top.Position.Y + stance + 0.45, root.Position.Z)
+	local front = face.Position + direction * 2
+	local across = Vector3.new(front.X, lift.Y, front.Z)
+	local kind = "Mantle"
+	if rise <= 3.6 then
+		local far = face.Position + direction * 5.2
+		local floor = workspace:Raycast(Vector3.new(far.X, lift.Y, far.Z), -Vector3.yAxis * (stance + rise + 2.5), params)
+		if floor and floor.Instance ~= top.Instance and floor.Normal.Y >= 0.8 and math.abs(floor.Position.Y - feet.Y) < 2 then
+			across = Vector3.new(far.X, lift.Y, far.Z)
+			kind = "Vault"
+		end
+	end
+	local body = Vector3.new(2.5, 4.1, 2.5)
+	local clearance = Vector3.yAxis * 0.6
+	local function blocked(from, to)
+		local delta = to - from
+		return delta.Magnitude > 0.01 and workspace:Blockcast(CFrame.new(from + clearance), body, delta, params)
+	end
+	-- If the overhead path intersects another solid, native jumping continues.
+	if blocked(root.Position, lift) or blocked(lift, across) then return nil end
+	return {lift = lift, across = across, kind = kind}
+end
+
+function Traversal.start(player, root, path, isActive)
+	local character = player.Character
+	local begin = root.Position
+	local rotation = root.CFrame.Rotation
+	local duration = path.kind == "Vault" and 0.33 or 0.42
+	root.Anchored = true
+	root.AssemblyLinearVelocity = Vector3.zero
+	character:SetAttribute("ZIVRATraversing", path.kind)
+	task.spawn(function()
+		local elapsed = 0
+		while elapsed < duration do
+			elapsed += RunService.Heartbeat:Wait()
+			if player.Character ~= character or not root.Parent or not isActive() then break end
+			local progress = math.clamp(elapsed / duration, 0, 1)
+			local position
+			if progress < 0.45 then
+				position = begin:Lerp(path.lift, progress / 0.45)
+			else
+				position = path.lift:Lerp(path.across, (progress - 0.45) / 0.55)
+			end
+			root.CFrame = CFrame.new(position) * rotation
+		end
+		if character.Parent then character:SetAttribute("ZIVRATraversing", nil) end
+		if player.Character == character and root.Parent and isActive() then root.Anchored = false end
+	end)
+end
+
+return Traversal
+]=]},
+{name=[=[
 Utility]=],source=[=[
 local Players=game:GetService("Players")
 local Weapons=require(game.ReplicatedStorage.ZIVRA.Weapons)
@@ -882,7 +1142,7 @@ function Utility.detonate(player)
 end
 function Utility.activate(player,dir)
 	local s=C.States[player]; local alive,h,root,head=C.alive(player)
-	if not alive or not s or s.menu or s.mode=="Lobby" or now()<s.busy then return end
+	if not alive or not s or s.menu or not C.permitted(s) or now()<s.busy then return end
 	local d=Weapons.ById[s.loadout[4]]
 	if now()<(s.cooldowns[d.id] or 0) or (s.charges[d.id] or 0)<=0 then return end
 	local accepted=false
@@ -962,9 +1222,124 @@ end
 return Utility
 ]=]},
 {name=[=[
+VertexYard]=],source=[=[
+local Yard = {}
+
+local graphite = Color3.fromRGB(37, 44, 52)
+local navy = Color3.fromRGB(38, 54, 66)
+local concrete = Color3.fromRGB(100, 109, 113)
+local titanium = Color3.fromRGB(142, 153, 154)
+local amber = Color3.fromRGB(182, 123, 62)
+local cyan = Color3.fromRGB(101, 195, 204)
+
+function Yard.build(parent, origin)
+	local arena = Instance.new("Model")
+	arena.Name = "VertexYard"
+	arena.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+
+	local function block(name, x, y, z, width, height, depth, color, material, trim, angle)
+		local item = Instance.new("Part")
+		item.Name = name
+		item.Anchored = true
+		item.Size = Vector3.new(width, height, depth)
+		item.CFrame = CFrame.new(origin + Vector3.new(x, y, z)) * CFrame.Angles(angle or 0, 0, 0)
+		item.Color = color
+		item.Material = material or Enum.Material.Metal
+		if trim then
+			item.CanCollide = false
+			item.CanTouch = false
+			item.CanQuery = false
+			item.CastShadow = false
+		end
+		item.Parent = arena
+		return item
+	end
+
+	block("Foundry slab", 0, 0, 0, 128, 2, 144, graphite, Enum.Material.Concrete)
+	for _, x in ipairs({-63, 63}) do
+		block("Side retaining wall", x, 11, 0, 2, 22, 144, navy)
+		block("Wall coping", x, 22, 0, 2.4, 0.6, 144, titanium)
+		for z = -60, 60, 20 do
+			block("Wall buttress", x + (x < 0 and 1.2 or -1.2), 9, z, 1.4, 16, 2, graphite)
+		end
+	end
+
+	for _, sign in ipairs({-1, 1}) do
+		local side = sign == 1 and "North" or "South"
+		block(side .. " bulkhead", 0, 15, 71 * sign, 128, 30, 2, navy)
+		block("Spawn sightline baffle", 0, 5.5, 52 * sign, 29, 9, 3.5, concrete, Enum.Material.Concrete)
+		block("Baffle cap", 0, 10.1, 52 * sign, 29.2, 0.4, 3.7, graphite, nil, true)
+		block("Protected staging pad", 0, 1.06, 62 * sign, 22, 0.12, 10, navy, Enum.Material.DiamondPlate, true)
+		for _, x in ipairs({-13, 13}) do
+			block("Spawn guide", x, 1.03, 62 * sign, 0.32, 0.05, 10, cyan, Enum.Material.Neon, true)
+		end
+
+		block("Loading lane cover", -24, 2.45, 36 * sign, 11, 2.9, 3, concrete, Enum.Material.Concrete)
+		block("Climbable approach", -45, 2.5, 37 * sign, 13, 3, 12, navy, Enum.Material.DiamondPlate)
+		block("Raised service platform", -47, 4, 21 * sign, 15, 6, 13, graphite, Enum.Material.Concrete)
+		block("Service deck edge", -39.6, 7.03, 21 * sign, 0.22, 0.08, 12.8, cyan, Enum.Material.Neon, true)
+		block("Service cover", -52, 8.55, 22 * sign, 2, 3.1, 6, navy)
+		block("Jump-route landing", -43, 5.25, 7 * sign, 12, 1.5, 8, navy, Enum.Material.DiamondPlate)
+		block("Jump-route support", -43, 2.75, 7 * sign, 3, 3.5, 3, graphite)
+
+		block("Approach pier", 7 * sign, 5.25, 24 * sign, 9, 8.5, 5.5, concrete, Enum.Material.Concrete)
+		block("Center ramp", -7 * sign, 2.75, 14 * sign, 10, 0.65, 14.5, navy, Enum.Material.DiamondPlate, -sign * math.atan(3.5 / 14))
+		block("Flank low wall", 22, 2.45, 35 * sign, 12, 2.9, 3, concrete, Enum.Material.Concrete)
+		block("Freight container", 42, 5.3, 29 * sign, 16, 8.6, 19, amber)
+		for offset = -7, 7, 3.5 do
+			block("Freight rib", 33.9, 5.2, 29 * sign + offset, 0.25, 8.1, 0.28, graphite, nil, true)
+		end
+		block("Freight access step", 43, 2.6, 44 * sign, 10, 3.2, 9, concrete, Enum.Material.Concrete)
+		block("Service climb", 48, 4.2, 44 * sign, 6, 6.4, 9, navy)
+		block("Passage entrance cover", 51, 3.8, 15 * sign, 4, 5.6, 7, graphite)
+	end
+
+	block("Transfer deck", 0, 3.35, 0, 24, 2.3, 14, navy, Enum.Material.DiamondPlate)
+	block("Transfer core", 0, 8.35, 0, 6, 7.7, 6, graphite)
+	for _, x in ipairs({-2.9, 2.9}) do
+		block("Core inspection strip", x, 9.4, 0, 0.25, 4.2, 2.2, amber, Enum.Material.Neon, true)
+	end
+	local sign = block("Vertex Yard sign", 0, 12.85, 0, 17, 1.7, 1.4, navy)
+	for _, face in ipairs({Enum.NormalId.Front, Enum.NormalId.Back}) do
+		local surface = Instance.new("SurfaceGui")
+		surface.Face = face
+		surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		surface.PixelsPerStud = 35
+		surface.Parent = sign
+		local text = Instance.new("TextLabel")
+		text.Size = UDim2.fromScale(1, 1)
+		text.BackgroundTransparency = 1
+		text.TextColor3 = cyan
+		text.TextScaled = true
+		text.Font = Enum.Font.GothamBold
+		text.Text = "V E R T E X   Y A R D"
+		text.Parent = surface
+	end
+
+	block("West crossover", -25, 2.5, 0, 10, 3, 10, concrete, Enum.Material.Concrete)
+	block("Flank passage deck", 42, 8.35, 0, 23, 1.1, 20, navy, Enum.Material.DiamondPlate)
+	block("Passage inner wall", 31, 4.5, 0, 2, 7, 20, graphite)
+	block("Passage outer wall", 53, 4.5, 0, 2, 7, 20, graphite)
+	block("Upper flank cover", 49, 10.65, -3, 3, 3.5, 6, concrete, Enum.Material.Concrete)
+	block("Upper flank cover", 49, 10.65, 3, 3, 3.5, 6, concrete, Enum.Material.Concrete)
+	block("Upper flank access", 25, 3, 0, 7, 4, 10, concrete, Enum.Material.Concrete)
+	block("Upper flank step", 28, 4.8, 0, 5, 1, 7, navy)
+	block("Upper flank step", 31, 6.55, 0, 4, 1, 7, navy)
+	for _, z in ipairs({-9.9, 9.9}) do
+		block("Passage lintel light", 42, 7.78, z, 13, 0.15, 0.23, cyan, Enum.Material.Neon, true)
+	end
+	arena.Parent = parent
+	return arena
+end
+
+return Yard
+]=]},
+{name=[=[
 World]=],source=[=[
 -- Additive runtime practice world. Never clears or edits the existing lobby/map.
 local World={Targets={},Origin=Vector3.new(0,1000,0), ArenaOrigin=Vector3.new(600,1000,0)}
+local Yard=require(script.Parent.VertexYard)
+local Config=require(game.ReplicatedStorage.ZIVRA.Config)
 local CollectionService=game:GetService("CollectionService")
 local function part(parent,name,size,cf,color,material)
 	local p=Instance.new("Part")
@@ -987,9 +1362,19 @@ local function prompt(p,text,fn)
 		if root and (root.Position-p.Position).Magnitude<=14 then fn(player) end
 	end)
 end
+function World.spawn(side,round)
+	local sign=(side+round)%2==0 and 1 or -1
+	local position=World.ArenaOrigin+Vector3.new(0,4.2,62*sign)
+	return CFrame.lookAt(position,position-Vector3.new(0,0,sign))
+end
 function World.build(onRange,onLobby,onDuel)
 	assert(not workspace:FindFirstChild("ZIVRA_Runtime"),"Duplicate ZIVRA server startup")
 	local folder=Instance.new("Folder"); folder.Name="ZIVRA_Runtime"; folder.Parent=workspace; World.Folder=folder
+	World.Arena=Yard.build(folder,World.ArenaOrigin)
+	local corridor=workspace:FindFirstChild("ZIVRA_Corridor")
+	local spawn=corridor and corridor:FindFirstChild("LobbySpawn") or workspace:FindFirstChild("ZIVRA_Spawn",true)
+	World.LobbyCFrame=spawn and spawn.CFrame+Vector3.new(0,4,0) or CFrame.new(0,6,9)
+	if Config.Launch1v1 then return end
 	local range=Instance.new("Model"); range.Name="PracticeRange"; range.Parent=folder
 	local o=World.Origin
 	part(range,"Floor",Vector3.new(180,2,250),CFrame.new(o),white,Enum.Material.Concrete)
@@ -1012,15 +1397,6 @@ function World.build(onRange,onLobby,onDuel)
 	local exit=part(range,"Return",Vector3.new(14,5,1),CFrame.new(o+Vector3.new(0,5,112)),Color3.fromRGB(8,123,255))
 	label(exit,"RETURN TO LOBBY"); prompt(exit,"Return to Lobby",onLobby)
 	for i=1,5 do part(range,"MobilityStep",Vector3.new(12,2,12),CFrame.new(o+Vector3.new(72,1+i*2,70-i*18)),dark) end
-	local arena=Instance.new("Model"); arena.Name="DuelArena"; arena.Parent=folder
-	local a=World.ArenaOrigin
-	part(arena,"Floor",Vector3.new(130,2,150),CFrame.new(a),dark,Enum.Material.Concrete)
-	for _,x in ipairs({-65,65}) do part(arena,"Wall",Vector3.new(2,30,150),CFrame.new(a+Vector3.new(x,15,0)),white) end
-	for _,z in ipairs({-75,75}) do part(arena,"Wall",Vector3.new(130,30,2),CFrame.new(a+Vector3.new(0,15,z)),white) end
-	for _,v in ipairs({Vector3.new(-25,5,-20),Vector3.new(25,5,20),Vector3.new(0,4,0)}) do part(arena,"Cover",Vector3.new(16,8,12),CFrame.new(a+v),white) end
-	-- Attach interaction kiosks near the existing spawn; preserve the house geometry.
-	local spawn=workspace:FindFirstChild("ZIVRA_Spawn",true) or (workspace:FindFirstChild("ZIVRA_Corridor") and workspace.ZIVRA_Corridor:FindFirstChild("LobbySpawn"))
-	World.LobbyCFrame=spawn and spawn.CFrame+Vector3.new(0,4,0) or CFrame.new(0,6,9)
 	local base=World.LobbyCFrame.Position
 	local entrance=part(folder,"RangeKiosk",Vector3.new(8,5,1),CFrame.new(base+Vector3.new(12,0,0)),dark)
 	label(entrance,"ZIVRA / TRAINING"); prompt(entrance,"Enter Shooting Range",onRange)
@@ -1030,7 +1406,7 @@ end
 function World.inBounds(pos,mode)
 	local o=mode=="Range" and World.Origin or World.ArenaOrigin
 	local v=pos-o
-	return math.abs(v.X)<(mode=="Range" and 87 or 62) and math.abs(v.Z)<(mode=="Range" and 122 or 72) and v.Y>1 and v.Y<90
+	return math.abs(v.X)<(mode=="Range" and 87 or 62) and math.abs(v.Z)<(mode=="Range" and 122 or 70) and v.Y>0 and v.Y<90
 end
 function World.step(now)
 	for model,t in pairs(World.Targets) do
@@ -1051,6 +1427,9 @@ local Players=game:GetService("Players")
 local RunService=game:GetService("RunService")
 local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
 local Rules=require(Shared.Rules)
+local Config=require(Shared.Config)
+local Duel=require(script.Duel)
+local Traversal=require(script.Traversal)
 local Profiles=require(script.Profiles)
 local World=require(script.World)
 local Combat=require(script.Combat)
@@ -1061,11 +1440,9 @@ local request=Instance.new("RemoteEvent"); request.Name="Request"; request.Paren
 local feedback=Instance.new("RemoteEvent"); feedback.Name="Feedback"; feedback.Parent=Shared
 Combat.init(feedback,World,Profiles); Combat.Projectiles=Projectiles; Combat.Utility=Utility
 Projectiles.init(Combat); Utility.init(Combat)
-local function available(player)
-    if player:GetAttribute("ZIVRAInMatch") or player:GetAttribute("ZIVRATraining") then return false end
-    local hq=game.ServerScriptService:FindFirstChild("ZIVRAHQServices")
-    if hq then local party=require(hq.LobbyService).Core:Get(player.UserId); if party and party.state~="Idle" then return false end end
-    return true
+if Config.Launch1v1 then
+ local storage=Instance.new("Folder"); storage.Name="ZIVRA_InactiveStarterTools"; storage.Parent=game.ServerStorage
+ for _,item in game.StarterPack:GetChildren() do if item:IsA("Tool") then item.Parent=storage end end
 end
 local stashed={}
 local function tools(player)
@@ -1080,85 +1457,244 @@ local function tools(player)
         stashed[player]:Destroy();stashed[player]=nil
     end
 end
-local matches={}; local invitations={}; local arenaReady=0; local nextMatch=0; local connections={}; local shuttingDown=false
-local finishMatch
-local function lobby(player)
-	local s=Combat.States[player]; if not s then return end
-	if s.match then finishMatch(s.match,nil,"Duel ended") end
-	Combat.transition(player,"Lobby",World.LobbyCFrame)
-end
-local function enterRange(player)
-	local s=Combat.States[player]
-	if not s or s.mode~="Lobby" or not Combat.alive(player) or not available(player) then return end
-	Combat.transition(player,"Range",CFrame.new(World.Origin+Vector3.new(0,5,80)))
-end
-finishMatch=function(id,winner,message)
-	local match=matches[id]; if not match then return end
-	matches[id]=nil; arenaReady=os.clock()+2.2
-	for _,player in ipairs(match.players) do
+local match
+local queueOrder=0
+local connections={}
+local shuttingDown=false
+local function publishMatch(current)
+	for side,player in ipairs(current.players) do
 		local s=Combat.States[player]
-		if s then
-			s.match=nil
-			if winner then
-				local daily=Profiles.daily(s.profile); daily.duels+=1; s.profile.stats.duels+=1
-				if winner==player then daily.wins+=1; s.profile.stats.wins+=1; s.profile.currency+=25 end
-			end
-			Combat.cleanup(player); s.mode="Lobby"; s.epoch+=1; s.trigger=nil; s.grapple=nil
-			Combat.send(player,"Notice",message or (winner==player and "Duel won +25" or "Duel complete"))
-			task.delay(2,function()
-				if Combat.States[player]==s and s.mode=="Lobby" then
-					if Combat.alive(player) then Combat.transition(player,"Lobby",World.LobbyCFrame)
-					else player:LoadCharacterAsync() end
-				end
-			end)
+		if s and s.mode=="Duel" and s.duel and s.duel.id==current and player.Parent==Players then
+			player:SetAttribute("ZIVRADuelPhase",current.phase)
+			local opponent=3-side
+			s.duel={
+				id=current, phase=current.phase,
+			}
+			s.duelView={
+				phase=current.phase, round=current.round, reason=current.reason,
+				deadline=workspace:GetServerTimeNow()+math.max(0,current.deadline-os.clock()),
+				name=player.DisplayName, opponent=current.players[opponent].DisplayName,
+				score=current.score[side], opponentScore=current.score[opponent],
+				eliminations=current.eliminations[side], opponentEliminations=current.eliminations[opponent],
+				won=current.winner==side, decided=current.winner~=nil,
+				roundWon=current.roundWinner==side, roundDecided=current.roundWinner~=nil,
+				rematchAllowed=current.rematchAllowed, rematch=current.rematch[side]==true,
+			}
+			Combat.snapshot(player)
 		end
 	end
 end
-Combat.onElimination=function(winner,victim)
-	local s=Combat.States[victim]
-	if s and s.match then finishMatch(s.match,winner) end
-end
-local function startDuel(first,second)
-	-- One physical arena: serialize matches until instanced arenas are introduced.
-	if next(matches) or os.clock()<arenaReady then return false end
-	local a,b=Combat.States[first],Combat.States[second]
-	if not available(first) or not available(second) then return false end
-	if not a or not b or a.mode~="Lobby" or b.mode~="Lobby" or not Combat.alive(first) or not Combat.alive(second) then return false end
-	nextMatch+=1; local id=nextMatch
-	matches[id]={players={first,second},expires=os.clock()+180}
-	for i,p in ipairs({first,second}) do
-		invitations[p]=nil
-		local cs=Combat.States[p]; cs.match=id; cs.eliminated=false
-		local position=World.ArenaOrigin+Vector3.new(0,5,i==1 and 60 or -60)
-		Combat.transition(p,"Duel",CFrame.lookAt(position,World.ArenaOrigin+Vector3.new(0,5,0)))
-		cs.busy=os.clock()+3; Combat.snapshot(p,"Duel starts in 3 seconds")
+
+local function freeze(player,value)
+	local _,_,root=Combat.alive(player)
+	if root then
+		root.AssemblyLinearVelocity=Vector3.zero
+		root.AssemblyAngularVelocity=Vector3.zero
+		root.Anchored=value
 	end
-	return true
 end
+
+local function returnToHQ(player)
+	local s=Combat.States[player]
+	if not s or player.Parent~=Players then return end
+	local wasInArena=s.mode=="Duel"
+	s.duel=nil
+	s.duelView=nil
+	player:SetAttribute("ZIVRADuelPhase",nil)
+	freeze(player,false)
+	Combat.transition(player,"Lobby",World.LobbyCFrame)
+	s.lobbyReturn=nil
+	if wasInArena and not Combat.alive(player) and player.Character then
+		-- The normal Roblox respawn will enter at the headquarters spawn.
+		local root=player.Character:FindFirstChild("HumanoidRootPart")
+		if root then root.Anchored=false end
+	end
+end
+
+local function releaseMatch(current)
+	if match~=current then return end
+	match=nil
+	for _,player in ipairs(current.players) do
+		local s=Combat.States[player]
+		if s and s.duel and s.duel.id==current then returnToHQ(player) end
+	end
+end
+
+local function cancelMatch(current, reason, departing)
+	current:finish(nil,reason,os.clock())
+	current.deadline=os.clock()+6
+	for _,player in ipairs(current.players) do
+		if player~=departing then freeze(player,true) end
+	end
+	publishMatch(current)
+end
+
+local function lobby(player)
+	local s=Combat.States[player]
+	if not s then return end
+	if match and s.duel and s.duel.id==match then
+		if match.phase~="Result" then
+			cancelMatch(match,"Opponent returned to headquarters",player)
+		else
+			match.rematchAllowed=false
+			publishMatch(match)
+		end
+		returnToHQ(player)
+		local other=match.players[3-match:side(player)]
+		local opponent=Combat.States[other]
+		if not opponent or not opponent.duel then releaseMatch(match) end
+	elseif s.mode~="Lobby" then
+		returnToHQ(player)
+	end
+end
+
+local function enterRange(player)
+	local s=Combat.States[player]
+	if Config.Launch1v1 or not s or s.mode~="Lobby" or not Combat.alive(player) then return end
+	Combat.transition(player,"Range",CFrame.new(World.Origin+Vector3.new(0,5,80)))
+end
+
+local function roundEnded(current)
+	for _,player in ipairs(current.players) do
+		local s=Combat.States[player]
+		s.epoch+=1
+		s.trigger=nil
+		s.busy=0
+		Combat.cleanup(player)
+		freeze(player,true)
+		if current.phase=="Result" then
+			local p=s.profile
+			local daily=Profiles.daily(p)
+			daily.duels+=1
+			p.stats.duels+=1
+			if current.players[current.winner]==player then
+				daily.wins+=1
+				p.stats.wins+=1
+			end
+		end
+	end
+	publishMatch(current)
+end
+
+local function resolveRound(winner,reason)
+	if match and match:resolve(winner,reason,os.clock()) then roundEnded(match) end
+end
+
+Combat.onElimination=function(winner,victim,headshot)
+	if match and match.phase=="Active" and match:side(winner) and match:side(victim) then
+		Combat.send(winner,"Notice",headshot and "HEADSHOT ELIMINATION" or "ELIMINATION")
+		resolveRound(match:side(winner),"Elimination")
+	end
+end
+
+local function startDuel(first,second,now)
+	local players={first,second}
+	match=Duel.new(players,Config.Duel,now)
+	for side,p in ipairs(players) do
+		local s=Combat.States[p]
+		s.duel={id=match, phase="Versus"}
+		p:SetAttribute("ZIVRAQueued",false)
+		Combat.transition(p,"Duel",World.spawn(side,1))
+		freeze(p,true)
+	end
+	publishMatch(match)
+end
+
 local function queue(player)
-	local s=Combat.States[player]; if not s or s.mode~="Lobby" or not Combat.alive(player) then return end
-	s.queued=not s.queued; Combat.snapshot(player,s.queued and "Waiting for an opponent" or "Left queue")
-	if not s.queued then return end
-	for other,os in pairs(Combat.States) do
-		if other~=player and os.queued and os.mode=="Lobby" and Combat.alive(other) then startDuel(player,other); break end
+	local s=Combat.States[player]
+	if not s or s.mode~="Lobby" or not Combat.alive(player) then return end
+	if s.queued then
+		s.queued=false
+	else
+		queueOrder+=1
+		s.queued=queueOrder
+	end
+	player:SetAttribute("ZIVRAQueued",s.queued and true or false)
+	Combat.snapshot(player,s.queued and "Waiting for an opponent" or "Left queue")
+end
+
+local function matchStep(now)
+	local current=match
+	if not current then
+		local candidates={}
+		for p,s in pairs(Combat.States) do
+			if s.queued and s.mode=="Lobby" and s.readyCharacter==p.Character and Combat.alive(p) then
+				table.insert(candidates,p)
+			end
+		end
+		table.sort(candidates,function(a,b) return Combat.States[a].queued<Combat.States[b].queued end)
+		if candidates[2] then startDuel(candidates[1],candidates[2],now) end
+		return
+	end
+	if current.phase=="Result" and current.rematchAllowed and current.rematch[1] and current.rematch[2]
+		and Combat.alive(current.players[1]) and Combat.alive(current.players[2]) then
+		startDuel(current.players[2],current.players[1],now)
+		return
+	end
+	if now<current.deadline then return end
+	if current.phase=="Active" then
+		local _,first=Combat.alive(current.players[1])
+		local _,second=Combat.alive(current.players[2])
+		if current:timeout(first and first.Health or 0,second and second.Health or 0,now) then roundEnded(current) end
+	elseif current.phase=="Result" then
+		releaseMatch(current)
+	elseif current.phase=="Countdown" then
+		if not Combat.alive(current.players[1]) or not Combat.alive(current.players[2]) then
+			cancelMatch(current,"A player did not respawn")
+			return
+		end
+		current:begin(now)
+		for _,player in ipairs(current.players) do freeze(player,false) end
+		publishMatch(current)
+	else
+		for _,player in ipairs(current.players) do
+			if not Combat.alive(player) then
+				if now>=current.deadline+Config.Duel.RespawnGraceSeconds then cancelMatch(current,"A player did not respawn") end
+				return
+			end
+		end
+		current:countdown(now)
+		for side,player in ipairs(current.players) do
+			local s=Combat.States[player]
+			s.duel.phase="Countdown"
+			Combat.transition(player,"Duel",World.spawn(side,current.round))
+			freeze(player,true)
+		end
+		publishMatch(current)
 	end
 end
 World.build(enterRange,lobby,queue)
 local function characterAdded(player,character)
 	local h=character:WaitForChild("Humanoid",10); local root=character:WaitForChild("HumanoidRootPart",10)
-	if not h or not root then return end
+	if not h or not root or player.Character~=character then return end
 	local s=Combat.States[player]; if not s then return end
-	if s.match then finishMatch(s.match,nil,"Duel ended after respawn") end
-	s.eliminated=false
+	local inDuel=s.duel and match==s.duel.id
 	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
-    s.mode="Lobby";player:SetAttribute("ZIVRACombatMode","Lobby");tools(player);Combat.reset(player)
+	if inDuel then
+		if match.phase=="Active" then resolveRound(3-match:side(player),"Reset") end
+		Combat.transition(player,"Duel",World.spawn(match:side(player),math.max(1,match.round)))
+		freeze(player,true)
+	else
+		s.mode="Lobby"
+		s.queued=false
+		player:SetAttribute("ZIVRAQueued",false)
+		player:SetAttribute("ZIVRACombatMode","Lobby")
+		tools(player)
+		Combat.reset(player)
+	end
+	s.readyCharacter=character
+	player:SetAttribute("ZIVRAReady",true)
     if connections[player] and connections[player].health then connections[player].health:Disconnect() end
     local lastHealth=h.Health
     connections[player].health=h.HealthChanged:Connect(function(value) if value<lastHealth then s.lastHit=os.clock() end;lastHealth=value end)
     if connections[player] and connections[player].death then connections[player].death:Disconnect() end
 	local death=h.Died:Connect(function()
 		Combat.cleanup(player); s.epoch+=1; s.trigger=nil; s.blocking=false; s.grapple=nil
-		if s.match and not s.pendingElimination then finishMatch(s.match,nil,"Duel ended") end
+		if s.duel and not s.pendingElimination and match==s.duel.id then
+			resolveRound(3-match:side(player),"Opponent fell")
+		elseif s.queued then
+			s.queued=false; player:SetAttribute("ZIVRAQueued",false)
+		end
 	end)
 	if connections[player] then connections[player].death=death else death:Disconnect() end
 end
@@ -1177,9 +1713,15 @@ Players.PlayerAdded:Connect(added)
 for _,player in ipairs(Players:GetPlayers()) do task.spawn(added,player) end
 Players.PlayerRemoving:Connect(function(player)
 	local s=Combat.States[player]
-	if s and s.match then finishMatch(s.match,nil,"Opponent disconnected; no win reward") end
-	Combat.cleanup(player); Combat.States[player]=nil; invitations[player]=nil
-	for target,invite in pairs(invitations) do if invite.from==player then invitations[target]=nil end end
+	if s and s.duel and match==s.duel.id then
+		if match.phase=="Result" then
+			match.rematchAllowed=false
+			publishMatch(match)
+		else
+			cancelMatch(match,"Opponent disconnected",player)
+		end
+	end
+	Combat.cleanup(player); Combat.States[player]=nil
 	if connections[player] then for _,c in pairs(connections[player]) do c:Disconnect() end; connections[player]=nil end
 	if stashed[player] then stashed[player]:Destroy();stashed[player]=nil end
 	Profiles.save(player,true)
@@ -1221,31 +1763,40 @@ request.OnServerEvent:Connect(function(player,action,value)
 	elseif action=="Range" then enterRange(player)
 	elseif action=="Lobby" then if s.mode~="Lobby" then lobby(player) end
 	elseif action=="Queue" then if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+1; queue(player) end
-	elseif action=="Invite" then
-		if s.mode=="Lobby" and Rules.finite(value) and os.clock()>(s.nextInvite or 0) then
-			s.nextInvite=os.clock()+5
-			local target=Players:GetPlayerByUserId(value); local ts=target and Combat.States[target]
-			if ts and target~=player and ts.mode=="Lobby" and not ts.queued and not s.queued and not invitations[target] then
-				invitations[target]={from=player,expires=os.clock()+20}
-				Combat.send(target,"Invite",{userId=player.UserId,name=player.DisplayName,duration=20})
-				Combat.snapshot(player,"Duel invitation sent")
-			end
-		end
-	elseif action=="AcceptInvite" or action=="DeclineInvite" then
-		local invite=invitations[player]; invitations[player]=nil
-		if action=="AcceptInvite" and invite and invite.expires>os.clock() then
-			if not startDuel(invite.from,player) then Combat.snapshot(player,"Arena busy or invitation unavailable; use the duel queue") end
+	elseif action=="Rematch" then
+		if match and s.duel and s.duel.id==match and match:vote(player) then
+			local first,second=match.players[1],match.players[2]
+			if Combat.alive(first) and Combat.alive(second) then startDuel(second,first,os.clock()) else publishMatch(match) end
+		elseif match and s.duel and s.duel.id==match then
+			publishMatch(match)
 		end
 	elseif action=="ResetRange" then
 		if s.mode=="Range" and os.clock()>(s.nextReset or 0) then s.nextReset=os.clock()+5; Combat.reset(player); s.rangeStats={shots=0,hits=0,damage=0,started=os.clock()} end
-	elseif action=="Sprint" then if type(value)=="boolean" then s.sprint=value; if value then s.crouch=false end end
-	elseif action=="Crouch" then
+	elseif action=="Sprint" and s.mode=="Range" then if type(value)=="boolean" then s.sprint=value; if value then s.crouch=false end end
+	elseif action=="Crouch" and s.mode=="Range" then
 		local alive,h,r=Combat.alive(player)
 		if alive and not s.menu and os.clock()>(s.nextSlide or 0) then
 			if s.sprint and h.MoveDirection.Magnitude>0.5 and h.FloorMaterial~=Enum.Material.Air then
 				s.slideUntil=os.clock()+0.55; s.slideDirection=h.MoveDirection.Unit; s.nextSlide=os.clock()+1.8; s.crouch=false; s.sprint=false
 				Combat.send(player,"Slide",{duration=0.55})
 			else s.crouch=not s.crouch; s.sprint=false end
+		end
+	elseif action=="Traverse" then
+		local dir=Combat.direction(value)
+		local now=os.clock()
+		if dir and math.abs(dir.Y)<0.1 and s.mode=="Duel" and Combat.permitted(s) and not s.menu and now>=(s.nextTraverse or 0) then
+			s.nextTraverse=now+0.28
+			local alive,humanoid,root=Combat.alive(player)
+			if alive and not root.Anchored and humanoid.RigType==Enum.HumanoidRigType.R15 then
+				local path=Traversal.find(player.Character,root,humanoid,dir,World.Arena)
+				if path then
+					s.nextTraverse=now+0.65
+					local current,round=match,match.round
+					Traversal.start(player,root,path,function()
+						return match==current and current.round==round and Combat.permitted(s)
+					end)
+				end
+			end
 		end
 	elseif action=="Settings" then
 		if os.clock()>(s.nextSettings or 0) then s.nextSettings=os.clock()+0.3; settings(s,value); Combat.snapshot(player) end
@@ -1262,16 +1813,7 @@ RunService.Heartbeat:Connect(function(dt)
 	if now>snapshotTime then
 		snapshotTime=now+0.3
 		for player in pairs(Combat.States) do Combat.snapshot(player) end
-		for id,m in pairs(matches) do if now>m.expires then finishMatch(id,nil,"Duel timed out") end end
-		for target,invite in pairs(invitations) do if now>invite.expires then invitations[target]=nil end end
-		if not next(matches) and now>=arenaReady then
-			local first
-			for p,s in pairs(Combat.States) do
-				if s.queued and s.mode=="Lobby" and Combat.alive(p) then
-					if first then startDuel(first,p); break else first=p end
-				end
-			end
-		end
+		matchStep(now)
 	end
 end)
 task.spawn(function()
@@ -1295,7 +1837,7 @@ LocalScript]=],files={{name=[=[
 Effects]=],source=[=[
 local TweenService=game:GetService("TweenService")
 local Debris=game:GetService("Debris")
-local Effects={quality="Automatic",volume=0.6,pool={},active=0}
+local Effects={quality="Automatic",volume=0.6,pool={},active=0,audioActive=0}
 local colors={permafrost=Color3.fromRGB(160,230,255),freeze_ray=Color3.fromRGB(160,230,255),
 	energy_rifle=Color3.fromRGB(0,189,255),energy_pistols=Color3.fromRGB(0,189,255),distortion=Color3.fromRGB(162,43,255)}
 local folder=Instance.new("Folder"); folder.Name="ZIVRA_LocalEffects"; folder.Parent=workspace
@@ -1368,10 +1910,15 @@ function Effects.play(kind,data)
 end
 function Effects.audio(def,event,position)
 	local id=def.assets.audio[event]
-	if not id or id=="" or Effects.volume<=0 then return end
-	local carrier=Instance.new("Part"); carrier.Anchored=true; carrier.Transparency=1; carrier.CanCollide=false; carrier.CanQuery=false; carrier.Size=Vector3.one*0.1; carrier.Position=position; carrier.Parent=folder
+	if not id or id=="" or Effects.volume<=0 or Effects.audioActive>=24 then return end
+    Effects.audioActive+=1
+	local carrier=Instance.new("Part"); carrier.Anchored=true; carrier.Transparency=1; carrier.CanCollide=false; carrier.CanQuery=false; carrier.CanTouch=false; carrier.Size=Vector3.one*0.1; carrier.Position=position; carrier.Parent=folder
 	local sound=Instance.new("Sound"); sound.SoundId=id; sound.Volume=Effects.volume*0.5; sound.RollOffMinDistance=8; sound.RollOffMaxDistance=120; sound.Parent=carrier
-	sound:Play(); Debris:AddItem(carrier,5)
+	local cleaned=false
+    local function clean()
+        if cleaned then return end;cleaned=true;Effects.audioActive-=1;carrier:Destroy()
+    end
+    sound.Ended:Once(clean);sound:Play();task.delay(5,clean)
 end
 return Effects
 ]=]},
@@ -1457,7 +2004,7 @@ function UI.rebuild()
 	random.BackgroundColor3=Color3.fromRGB(10,11,15); random.LayoutOrder=0
 	label(random,"/  /",30,UDim2.fromScale(0.15,0.12),UDim2.fromScale(0.7,0.45),T.Muted).TextXAlignment=Enum.TextXAlignment.Center
 	for order,d in ipairs(Weapons.List) do
-		if d.slot==UI.category then
+		if d.slot==UI.category and (Weapons.Launch[d.id] or UI.state and UI.state.mode=='Range') then
 			local b=button(UI.grid,"",UDim2.new(),UDim2.new(),function() UI.choose(d.id) end); b.LayoutOrder=order
 			if d.rarity=="Signature" then b.UIStroke.Color=T.Gold end
 			viewport(b,d,UDim2.fromScale(0,-0.03),UDim2.fromScale(1,0.78))
@@ -1656,6 +2203,25 @@ function UI.init(send,onMenu,action)
 	button(UI.invites,"DECLINE",UDim2.new(0.5,4,0,100),UDim2.new(0.5,-24,0,36),function() send("DeclineInvite"); UI.invitationUntil=0; UI.setMenu(false) end)
 	UI.playerList=make("ScrollingFrame",UI.invites,{Position=UDim2.fromOffset(20,148),Size=UDim2.new(1,-40,1,-164),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=3})
 	make("UIListLayout",UI.playerList,{Padding=UDim.new(0,8)})
+	UI.matchScore=label(UI.root,"",14,UDim2.fromScale(0,0),UDim2.new(1,0,0,34),T.Text)
+	UI.matchScore.Name="DuelScore"
+	UI.matchScore.TextXAlignment=Enum.TextXAlignment.Center
+	UI.matchScore.Font=T.Bold
+	UI.matchScore.Visible=false
+	UI.matchCard=make("Frame",UI.root,{Name="DuelCard",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.48),Size=UDim2.new(0.88,0,0,176),BackgroundColor3=T.Surface,BorderSizePixel=0,Visible=false,ZIndex=5})
+	make("UISizeConstraint",UI.matchCard,{MaxSize=Vector2.new(470,176)})
+	round(UI.matchCard)
+	stroke(UI.matchCard)
+	UI.matchTitle=label(UI.matchCard,"",26,UDim2.fromOffset(16,10),UDim2.new(1,-32,0,42),T.Text)
+	UI.matchDetail=label(UI.matchCard,"",14,UDim2.fromOffset(16,53),UDim2.new(1,-32,0,60),T.Muted)
+	UI.matchDetail.TextWrapped=true
+	for _, item in ipairs({UI.matchTitle,UI.matchDetail}) do
+		item.ZIndex=6
+		item.TextXAlignment=Enum.TextXAlignment.Center
+	end
+	UI.rematchButton=button(UI.matchCard,"REMATCH",UDim2.new(0,12,1,-56),UDim2.new(0.5,-18,0,44),function() send("Rematch") end)
+	UI.resultLobby=button(UI.matchCard,"RETURN TO LOBBY",UDim2.new(0.5,6,1,-56),UDim2.new(0.5,-18,0,44),function() send("Lobby") end)
+	for _, item in ipairs({UI.rematchButton,UI.resultLobby}) do item.ZIndex=6;item.Modal=true end
 	UI.flash=make("Frame",UI.root,{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.fromRGB(130,143,158),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=50})
 	UI.root:GetPropertyChangedSignal("AbsoluteSize"):Connect(UI.resize)
 	UI.grid:GetPropertyChangedSignal("AbsoluteSize"):Connect(UI.resize)
@@ -1663,11 +2229,15 @@ function UI.init(send,onMenu,action)
 end
 function UI.update(state)
 	local old=UI.state; UI.state=state; UI.settings=state.settings
+	local duel=state.duel
+	local active=not duel or duel.phase=="Active"
+	UI.matchScore.Visible=duel~=nil
+	UI.matchCard.Visible=duel~=nil and not active and not UI.menu
 	UI.top.Text="ZIVRA  /  "..state.mode:upper()..(state.queued and " / QUEUED" or "")
 	UI.currency.Text=tostring(state.currency).." CREDITS"..(state.offline and " / UNSAVED" or "")
-	UI.inviteButton.Visible=state.mode=="Lobby"; UI.nav.Visible=state.mode=="Lobby"; UI.returnButton.Visible=state.mode~="Lobby"; UI.resetButton.Visible=state.mode=="Range"
-	UI.rangeStats.Visible=state.mode=="Range"; UI.reticle.Visible=state.mode~="Lobby" and not UI.menu
-	UI.quickbar.Visible=state.mode~="Lobby"; UI.touchLayer.Visible=(UIS.TouchEnabled and state.mode~="Lobby" or UI.editing) and not UI.menu
+	UI.inviteButton.Visible=state.mode=="Lobby"; UI.nav.Visible=state.mode=="Lobby"; UI.returnButton.Visible=state.mode~="Lobby" and active; UI.resetButton.Visible=state.mode=="Range"
+	UI.rangeStats.Visible=state.mode=="Range"; UI.reticle.Visible=state.mode~="Lobby" and active and not UI.menu
+	UI.quickbar.Visible=state.mode~="Lobby" and active; UI.touchLayer.Visible=(UIS.TouchEnabled and state.mode~="Lobby" and active or UI.editing) and not UI.menu
 	local d=Weapons.ById[state.loadout[state.slot]]
 	UI.ammo.Text=d.name.."  "..(d.magazine and (state.ammo[d.id] or 0).." / "..(state.reserve[d.id] or 0) or d.charges and tostring(state.charges[d.id] or 0).." USES" or "")
 	if state.reloading then UI.ammo.Text..="  RELOADING" elseif state.busy>0.1 then UI.ammo.Text..="  READYING" end
@@ -1700,13 +2270,39 @@ function UI.update(state)
 	local changed=not old or old.mode~=state.mode
 	if old then for i=1,4 do if old.loadout[i]~=state.loadout[i] then changed=true end end end
 	if UI.menu and UI.weaponPanel.Visible and changed then UI.rebuild() end
-	if state.message then UI.notice(state.message) end
+	if state.message then
+        UI.notice(state.message)
+        if state.message=="Elimination +10" then UI.hitUntil=os.clock()+0.4;UI.hit.TextColor3=T.Gold end
+    end
 end
 function UI.showDamage(from)
  if typeof(from)~="Vector3" then return end
  UI.damageFrom=from;UI.damageUntil=os.clock()+0.7
 end
+local function updateMatch(duel)
+	local count=math.max(0,math.ceil(duel.deadline-workspace:GetServerTimeNow()))
+	local timer=duel.phase=="Active" and string.format("  %d:%02d",math.floor(count/60),count%60) or ""
+	UI.matchScore.Text=string.format("%s  %d / %d  %s%s",duel.name,duel.score,duel.opponentScore,duel.opponent,timer)
+	UI.rematchButton.Visible=duel.phase=="Result" and duel.rematchAllowed==true
+	UI.resultLobby.Visible=duel.phase=="Result"
+	UI.resultLobby.Position=UDim2.new(UI.rematchButton.Visible and 0.5 or 0.25,6,1,-56)
+	UI.rematchButton.Text=duel.rematch and "WAITING FOR OPPONENT" or "REMATCH"
+	if duel.phase=="Versus" then
+		UI.matchTitle.Text="VERTEX YARD"
+		UI.matchDetail.Text=duel.name.."  VS  "..duel.opponent
+	elseif duel.phase=="Countdown" then
+		UI.matchTitle.Text=tostring(math.max(1,count))
+		UI.matchDetail.Text=string.format("ROUND %d",duel.round)
+	elseif duel.phase=="RoundEnd" then
+		UI.matchTitle.Text=duel.roundDecided and (duel.roundWon and "ROUND WON" or "ROUND LOST") or "ROUND DRAW"
+		UI.matchDetail.Text=duel.reason or ""
+	elseif duel.phase=="Result" then
+		UI.matchTitle.Text=duel.decided and (duel.won and "VICTORY" or "DEFEAT") or (duel.reason=="Draw limit" and "DRAW" or "DUEL ENDED")
+		UI.matchDetail.Text=string.format("%d / %d   ·   %d ELIMINATIONS\n%s",duel.score,duel.opponentScore,duel.eliminations,duel.reason or "")
+	end
+end
 function UI.step(humanoid,spread)
+ if UI.state and UI.state.duel then updateMatch(UI.state.duel) end
  UI.damageDirection.Visible=not UI.menu and UI.state and UI.state.mode~="Lobby" and os.clock()<(UI.damageUntil or 0) or false
  if UI.damageDirection.Visible then
   local cam=workspace.CurrentCamera
@@ -1722,7 +2318,8 @@ function UI.step(humanoid,spread)
 	UI.cross[1].Position=UDim2.fromOffset(-spread,0); UI.cross[2].Position=UDim2.fromOffset(spread,0)
 	UI.cross[3].Position=UDim2.fromOffset(0,-spread); UI.cross[4].Position=UDim2.fromOffset(0,spread)
 	UI.toast.Visible=os.clock()<(UI.toastUntil or 0)
-	UI.hit.Visible=os.clock()<(UI.hitUntil or 0)
+	UI.hit.Visible=not UI.menu and os.clock()<(UI.hitUntil or 0)
+    UI.hit.TextTransparency=math.clamp(1-((UI.hitUntil or 0)-os.clock())/0.13,0,1)
 	if UI.invitationUntil and os.clock()>=UI.invitationUntil then UI.inviteText.Text="Invite another player in the lobby."; UI.invitationUntil=nil end
 end
 function UI.flashScreen(intensity,duration)
@@ -1740,7 +2337,7 @@ function Viewmodel.equip(id)
 	if Viewmodel.id==id and Viewmodel.model then return end
 	if Viewmodel.model then Viewmodel.model:Destroy() end
 	Viewmodel.id=id; Viewmodel.def=Weapons.ById[id]; Viewmodel.model=Models.build(Viewmodel.def,true)
-	Viewmodel.parts=Viewmodel.model:GetChildren(); Viewmodel.equipped=os.clock(); Viewmodel.kick=0
+	Viewmodel.parts=Viewmodel.model:GetChildren(); Viewmodel.equipped=os.clock(); Viewmodel.kick=0; Viewmodel.reloadStart=nil; Viewmodel.sway=Vector2.zero
 	Viewmodel.model.Parent=workspace.CurrentCamera
 end
 function Viewmodel.fire()
@@ -1760,7 +2357,9 @@ function Viewmodel.step(dt,humanoid,menu)
 	local reloadPose=reload<1 and math.sin(reload*math.pi) or 0
 	local equip=math.max(0,1-(now-Viewmodel.equipped)/0.25)
 	local inspect=math.clamp(((Viewmodel.inspectUntil or 0)-now),0,1)
-	local mouse=game.UserInputService:GetMouseDelta()
+	local raw=game.UserInputService:GetMouseDelta()
+    Viewmodel.sway=(Viewmodel.sway or Vector2.zero):Lerp(raw,1-math.exp(-dt*16))
+    local mouse=Viewmodel.sway
 	local melee=d.kind=="melee" and math.max(0,1-(now-(Viewmodel.fired or 0))/0.3) or 0
 	local bob=math.sin(now*(humanoid and humanoid.WalkSpeed or 16)*0.6)*0.025*movement
 	local pose=CFrame.new(Viewmodel.aim and 0.1 or 0.65,-0.7+bob-reloadPose*0.3-equip*0.7-Viewmodel.landing,-1.55+Viewmodel.kick)
@@ -1772,7 +2371,10 @@ function Viewmodel.step(dt,humanoid,menu)
 			local rest=p:GetAttribute("Rest")
 			if rest then
 				local offset=CFrame.identity
-				if p.Name=="Magazine" then offset=CFrame.new(0,-reloadPose*0.8,reloadPose*0.1)
+				if p.Name=="Magazine" then
+                    local drop=reload<0.25 and reload/0.25 or reload<0.65 and 1 or math.max(0,(0.9-reload)/0.25)
+                    offset=CFrame.new(0,-drop*0.85,drop*0.12)*CFrame.Angles(0,0,-drop*0.12)
+                elseif p.Name=="LeftArm" then offset=CFrame.new(0,-reloadPose*0.3,reloadPose*0.35)
 				elseif p.Name=="Slide" then offset=CFrame.new(0,0,Viewmodel.kick*2)
 				elseif p.Name=="Rotor" then offset=rest:Inverse()*CFrame.Angles(0,0,now*(Viewmodel.firing and 35 or 3))*rest
 				elseif p.Name=="Core" then offset=CFrame.Angles(0,now*2,0)
@@ -1818,14 +2420,18 @@ local function stop()
 end
 local function usable()
 	local h=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	return state and state.mode~="Lobby" and not UI.menu and not UI.editing and not GuiService.MenuIsOpen and not UIS:GetFocusedTextBox() and h and h.Health>0
+	return state and state.mode~="Lobby" and (not state.duel or state.duel.phase=="Active") and not UI.menu and not UI.editing and not GuiService.MenuIsOpen and not UIS:GetFocusedTextBox() and h and h.Health>0
 end
 local function predict(d)
 	VM.fire()
-	if d.magazine then Effects.pulse((workspace.CurrentCamera.CFrame*CFrame.new(0.4,-0.25,-2)).Position,Color3.fromRGB(255,190,80),0.25,0.05) end
+	if d.magazine and not UI.settings.reduceFlash then
+        local muzzle=VM.model and VM.model:FindFirstChild("Muzzle")
+        local pos=muzzle and (muzzle.CFrame*CFrame.new(0,0,-0.15)).Position or (workspace.CurrentCamera.CFrame*CFrame.new(0.4,-0.25,-2)).Position
+        Effects.pulse(pos,Color3.fromRGB(255,190,110),0.18,0.045)
+    end
 end
 local function shoot()
-	if not usable() then return end
+	if not usable() or os.clock()<nextFire or state.reloading then return end
 	local d=Weapons.ById[state.loadout[state.slot]]
 	if d.magazine and (state.ammo[d.id] or 0)<=0 then return end
 	send("Fire",direction()); predict(d); nextFire=os.clock()+d.interval
@@ -1864,6 +2470,9 @@ local function action(name,on,input)
 		else aim=on; VM.aim=on end
 	elseif on and name=="Reload" then stop(); send("Reload")
 	elseif on and name=="Utility" then send("Utility",direction())
+	elseif state.mode=="Duel" and (name=="Crouch" or name=="Sprint") then
+		local movement=player.PlayerScripts:FindFirstChild("ZIVRA_DuelMovementInput")
+		if movement then movement:Fire(name,on) end
 	elseif on and name=="Crouch" then send("Crouch")
 	elseif name=="Sprint" then
 		if UIS.TouchEnabled then if on then sprint=not sprint; send("Sprint",sprint) end
@@ -1911,6 +2520,7 @@ for name,keys in pairs(mapping) do
 end
 CAS:BindAction("ZIVRACombat_Menu",function(_,inputState)
 	if UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
+	if state and state.duel and state.duel.phase~="Active" then return Enum.ContextActionResult.Pass end
 	if inputState==Enum.UserInputState.Begin then UI.setMenu(not UI.menu) end
 	return Enum.ContextActionResult.Sink
 end,false,Enum.KeyCode.B,Enum.KeyCode.ButtonY)
@@ -1942,19 +2552,25 @@ UIS.WindowFocusReleased:Connect(function() stop(); sprint=false; aim=false; VM.a
 player.CharacterAdded:Connect(function() stop(); VM.reloadStart=nil; aim=false; UI.setMenu(false) end)
 feedback.OnClientEvent:Connect(function(kind,data)
 	if kind=="State" then
-		if state and state.mode~=data.mode and UI.menu then UI.setMenu(false) end
-		local changed=not state or state.slot~=data.slot or state.loadout[data.slot]~=data.loadout[data.slot] or state.mode~=data.mode
+		if UI.menu and ((state and state.mode~=data.mode) or (data.duel and data.duel.phase~="Active")) then UI.setMenu(false) end
+		local changed=not state or state.slot~=data.slot or state.loadout[data.slot]~=data.loadout[data.slot] or state.mode~=data.mode or (state.duel and state.duel.phase)~=(data.duel and data.duel.phase)
 		if changed then stop(); VM.reloadStart=nil; aim=false; VM.aim=false end
+        if state and state.reloading and not data.reloading then VM.reloadStart=nil end
 		state=data; UI.update(data)
         UI.gui.Enabled=data.mode~="Lobby" or UI.menu
         UI.nav.Visible=false
         UI.inviteButton.Visible=false
         UI.health.Visible=data.mode~="Lobby";UI.ammo.Visible=data.mode~="Lobby"
-        UI.top.Visible=data.mode~="Lobby";UI.currency.Visible=data.mode~="Lobby"
-        UI.menuButton.Visible=data.mode~="Lobby"
+        UI.top.Visible=data.mode=="Range";UI.currency.Visible=false
+        UI.menuButton.Visible=data.mode~="Lobby" and (not data.duel or data.duel.phase=="Active")
         if data.mode~="Lobby" or UI.menu then UI.gui.Enabled=true end
 		VM.equip(data.loadout[data.slot]); VM.visible=data.mode~="Lobby"
-		if data.mode~="Lobby" then player.CameraMode=Enum.CameraMode.LockFirstPerson end
+		if data.mode=="Lobby" or data.duel and data.duel.phase=="Result" then
+			player.CameraMode=originalCameraMode
+			UIS.MouseBehavior=Enum.MouseBehavior.Default
+		else
+			player.CameraMode=Enum.CameraMode.LockFirstPerson
+		end
 		UIS.MouseDeltaSensitivity=originalSensitivity*(data.settings.sensitivity or 1)
 		Effects.quality=data.settings.quality; Effects.volume=data.settings.volume
 	elseif kind=="Effect" then Effects.play(data.kind,data.data)
@@ -1992,8 +2608,14 @@ RunService:BindToRenderStep("ZIVRA_Viewmodel",Enum.RenderPriority.Camera.Value+1
 		end
 	end
 	local cam=workspace.CurrentCamera
-	if state and state.mode~="Lobby" then cam.FieldOfView+=( (aim and not UI.menu and originalFOV-12 or originalFOV)-cam.FieldOfView)*math.min(1,dt*12) end
-	cameraRecoil=usable() and CFrame.Angles(VM.kick*0.12,0,0) or CFrame.identity
+	if state and state.mode~="Lobby" then
+		local base=player:GetAttribute("ZIVRAAppliedFOV") or originalFOV
+		local motion=player:GetAttribute("ZIVRAReducedMotion") and 0 or 1
+		local movement=player.Character and player.Character:GetAttribute("ZIVRALocalMovement")
+		local target=aim and not UI.menu and base-(state.loadout[state.slot]=="sniper_rifle" and 31 or 12) or base+(movement=="Sprint" and 6*motion or 0)
+		cam.FieldOfView+=(target-cam.FieldOfView)*math.min(1,dt*12)
+	end
+	cameraRecoil=usable() and not player:GetAttribute("ZIVRAReducedMotion") and CFrame.Angles(VM.kick*0.12,0,0) or CFrame.identity
 	cam.CFrame*=cameraRecoil
 	VM.step(dt,h,UI.menu)
 	local d=state and Weapons.ById[state.loadout[state.slot]]

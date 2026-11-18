@@ -1,5 +1,7 @@
 -- Additive runtime practice world. Never clears or edits the existing lobby/map.
 local World={Targets={},Origin=Vector3.new(0,1000,0), ArenaOrigin=Vector3.new(600,1000,0)}
+local Yard=require(script.Parent.VertexYard)
+local Config=require(game.ReplicatedStorage.ZIVRA.Config)
 local CollectionService=game:GetService("CollectionService")
 local function part(parent,name,size,cf,color,material)
 	local p=Instance.new("Part")
@@ -22,9 +24,19 @@ local function prompt(p,text,fn)
 		if root and (root.Position-p.Position).Magnitude<=14 then fn(player) end
 	end)
 end
+function World.spawn(side,round)
+	local sign=(side+round)%2==0 and 1 or -1
+	local position=World.ArenaOrigin+Vector3.new(0,4.2,62*sign)
+	return CFrame.lookAt(position,position-Vector3.new(0,0,sign))
+end
 function World.build(onRange,onLobby,onDuel)
 	assert(not workspace:FindFirstChild("ZIVRA_Runtime"),"Duplicate ZIVRA server startup")
 	local folder=Instance.new("Folder"); folder.Name="ZIVRA_Runtime"; folder.Parent=workspace; World.Folder=folder
+	World.Arena=Yard.build(folder,World.ArenaOrigin)
+	local corridor=workspace:FindFirstChild("ZIVRA_Corridor")
+	local spawn=corridor and corridor:FindFirstChild("LobbySpawn") or workspace:FindFirstChild("ZIVRA_Spawn",true)
+	World.LobbyCFrame=spawn and spawn.CFrame+Vector3.new(0,4,0) or CFrame.new(0,6,9)
+	if Config.Launch1v1 then return end
 	local range=Instance.new("Model"); range.Name="PracticeRange"; range.Parent=folder
 	local o=World.Origin
 	part(range,"Floor",Vector3.new(180,2,250),CFrame.new(o),white,Enum.Material.Concrete)
@@ -47,15 +59,6 @@ function World.build(onRange,onLobby,onDuel)
 	local exit=part(range,"Return",Vector3.new(14,5,1),CFrame.new(o+Vector3.new(0,5,112)),Color3.fromRGB(8,123,255))
 	label(exit,"RETURN TO LOBBY"); prompt(exit,"Return to Lobby",onLobby)
 	for i=1,5 do part(range,"MobilityStep",Vector3.new(12,2,12),CFrame.new(o+Vector3.new(72,1+i*2,70-i*18)),dark) end
-	local arena=Instance.new("Model"); arena.Name="DuelArena"; arena.Parent=folder
-	local a=World.ArenaOrigin
-	part(arena,"Floor",Vector3.new(130,2,150),CFrame.new(a),dark,Enum.Material.Concrete)
-	for _,x in ipairs({-65,65}) do part(arena,"Wall",Vector3.new(2,30,150),CFrame.new(a+Vector3.new(x,15,0)),white) end
-	for _,z in ipairs({-75,75}) do part(arena,"Wall",Vector3.new(130,30,2),CFrame.new(a+Vector3.new(0,15,z)),white) end
-	for _,v in ipairs({Vector3.new(-25,5,-20),Vector3.new(25,5,20),Vector3.new(0,4,0)}) do part(arena,"Cover",Vector3.new(16,8,12),CFrame.new(a+v),white) end
-	-- Attach interaction kiosks near the existing spawn; preserve the house geometry.
-	local spawn=workspace:FindFirstChild("ZIVRA_Spawn",true) or (workspace:FindFirstChild("ZIVRA_Corridor") and workspace.ZIVRA_Corridor:FindFirstChild("LobbySpawn"))
-	World.LobbyCFrame=spawn and spawn.CFrame+Vector3.new(0,4,0) or CFrame.new(0,6,9)
 	local base=World.LobbyCFrame.Position
 	local entrance=part(folder,"RangeKiosk",Vector3.new(8,5,1),CFrame.new(base+Vector3.new(12,0,0)),dark)
 	label(entrance,"ZIVRA / TRAINING"); prompt(entrance,"Enter Shooting Range",onRange)
@@ -65,7 +68,7 @@ end
 function World.inBounds(pos,mode)
 	local o=mode=="Range" and World.Origin or World.ArenaOrigin
 	local v=pos-o
-	return math.abs(v.X)<(mode=="Range" and 87 or 62) and math.abs(v.Z)<(mode=="Range" and 122 or 72) and v.Y>1 and v.Y<90
+	return math.abs(v.X)<(mode=="Range" and 87 or 62) and math.abs(v.Z)<(mode=="Range" and 122 or 70) and v.Y>0 and v.Y<90
 end
 function World.step(now)
 	for model,t in pairs(World.Targets) do

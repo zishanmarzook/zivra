@@ -1,6 +1,6 @@
 local TweenService=game:GetService("TweenService")
 local Debris=game:GetService("Debris")
-local Effects={quality="Automatic",volume=0.6,pool={},active=0}
+local Effects={quality="Automatic",volume=0.6,pool={},active=0,audioActive=0}
 local colors={permafrost=Color3.fromRGB(160,230,255),freeze_ray=Color3.fromRGB(160,230,255),
 	energy_rifle=Color3.fromRGB(0,189,255),energy_pistols=Color3.fromRGB(0,189,255),distortion=Color3.fromRGB(162,43,255)}
 local folder=Instance.new("Folder"); folder.Name="ZIVRA_LocalEffects"; folder.Parent=workspace
@@ -73,9 +73,14 @@ function Effects.play(kind,data)
 end
 function Effects.audio(def,event,position)
 	local id=def.assets.audio[event]
-	if not id or id=="" or Effects.volume<=0 then return end
-	local carrier=Instance.new("Part"); carrier.Anchored=true; carrier.Transparency=1; carrier.CanCollide=false; carrier.CanQuery=false; carrier.Size=Vector3.one*0.1; carrier.Position=position; carrier.Parent=folder
+	if not id or id=="" or Effects.volume<=0 or Effects.audioActive>=24 then return end
+    Effects.audioActive+=1
+	local carrier=Instance.new("Part"); carrier.Anchored=true; carrier.Transparency=1; carrier.CanCollide=false; carrier.CanQuery=false; carrier.CanTouch=false; carrier.Size=Vector3.one*0.1; carrier.Position=position; carrier.Parent=folder
 	local sound=Instance.new("Sound"); sound.SoundId=id; sound.Volume=Effects.volume*0.5; sound.RollOffMinDistance=8; sound.RollOffMaxDistance=120; sound.Parent=carrier
-	sound:Play(); Debris:AddItem(carrier,5)
+	local cleaned=false
+    local function clean()
+        if cleaned then return end;cleaned=true;Effects.audioActive-=1;carrier:Destroy()
+    end
+    sound.Ended:Once(clean);sound:Play();task.delay(5,clean)
 end
 return Effects

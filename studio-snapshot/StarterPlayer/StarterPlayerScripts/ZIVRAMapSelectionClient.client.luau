@@ -1,3 +1,4 @@
+if require(game:GetService('ReplicatedStorage'):WaitForChild('ZIVRA').Config).Launch1v1 then return end
 local Players=game:GetService('Players');local Lighting=game:GetService('Lighting')
 local Shared=game.ReplicatedStorage:WaitForChild('ZIVRAMapShared')
 local C=require(Shared.MapConfig);local Remote=Shared.MapSelection

@@ -11,6 +11,7 @@ for file in files:
     if result.returncode: raise SystemExit(result.stderr)
 print(f'PASS: {len(files)} source and Studio snapshot Luau files compile',flush=True)
 run(tool('luau'),'tests/Rules.spec.luau')
+run(tool('luau'),'tests/Duel.spec.luau')
 work=root/'work';work.mkdir(exist_ok=True)
 def wrapped(file,name):
     source=(root/file).read_text(encoding="utf-8")

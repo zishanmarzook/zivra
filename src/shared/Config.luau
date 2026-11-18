@@ -1,4 +1,9 @@
 return {
+ Launch1v1=true,
+ Duel={
+  WinsRequired=3, VersusSeconds=2, CountdownSeconds=3, RoundSeconds=90,
+  IntermissionSeconds=3, RespawnGraceSeconds=14, ResultSeconds=22, MaxDraws=3,
+ },
  Countdown=10, ScanInterval=0.2, DepartureCooldown=5,
  -- Set DestinationPlaceId only after the corresponding map exists.
  Stations={

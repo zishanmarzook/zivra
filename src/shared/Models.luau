@@ -31,7 +31,68 @@ function Models.build(def,arms)
 		b("Sight",0.1,0.13,0.1,offset,0.45,0.3,metal)
 	end
 	local id=def.id
-	if def.kind=="melee" then
+	if id=="assault_rifle" or id=="handgun" then
+        local rifle=id=="assault_rifle"
+        accent=Color3.fromRGB(65,176,193)
+        b("Receiver",rifle and 0.46 or 0.34,0.38,rifle and 1.4 or 0.9,0,0,0,rifle and tan or metal)
+        b("Slide",rifle and 0.38 or 0.36,0.17,rifle and 1.25 or 1.05,0,0.25,-0.03,Color3.fromRGB(74,82,92))
+        b("Grip",0.28,0.65,0.38,0,-0.46,0.3,metal,CFrame.Angles(-0.2,0,0))
+        b("Magazine",0.24,rifle and 0.7 or 0.48,0.32,0,-0.5,rifle and -0.3 or 0.31,Color3.fromRGB(29,34,40),rifle and CFrame.Angles(-0.21,0,0))
+        b("TriggerGuard",0.08,0.08,0.45,0,-0.32,-0.05,steel)
+        b("Trigger",0.07,0.18,0.07,0,-0.21,0.05,steel,CFrame.Angles(-0.2,0,0))
+        b("FrontSight",0.08,0.13,0.09,0,0.4,rifle and -1.4 or -0.45,steel)
+        for _,x in {-0.12,0.12} do b("RearSight",0.06,0.12,0.12,x,0.4,0.35,metal) end
+        local muzzle=rifle and -2.05 or -0.7
+        b("Barrel",0.16,0.16,rifle and 1.2 or 0.35,0,0.12,rifle and -1.5 or -0.56,steel)
+        b("Muzzle",0.23,0.23,0.18,0,0.12,muzzle,metal)
+        b("Bore",0.11,0.11,0.01,0,0.12,muzzle-0.096,Color3.fromRGB(8,10,13))
+        b("Indicator",0.02,0.055,0.2,0.24,0.1,-0.15,accent)
+        if rifle then
+            b("Stock",0.34,0.42,0.8,0,-0.04,1.02,metal)
+            b("Buttpad",0.38,0.52,0.12,0,-0.06,1.46,Color3.fromRGB(20,24,28))
+            b("Handguard",0.42,0.36,0.85,0,0,-1.05,metal)
+            for i=1,4 do for _,x in {-0.218,0.218} do b("Vent",0.015,0.12,0.1,x,0.03,-0.7-i*0.17,Color3.fromRGB(12,17,22)) end end
+            b("OpticBase",0.26,0.09,0.35,0,0.4,0,metal)
+            for _,x in {-0.13,0.13} do b("OpticFrame",0.05,0.22,0.18,x,0.52,0,steel) end
+            b("OpticTop",0.3,0.04,0.18,0,0.65,0,steel)
+        end
+        for i=1,4 do b("GripRidge",0.29,0.035,0.035,0,-0.27-i*0.1,0.51,steel) end
+    elseif id=="sniper_rifle" or id=="shotgun" or id=="revolver" then
+		local sniper=id=="sniper_rifle"
+		local shotgun=id=="shotgun"
+		local length=sniper and 2.9 or shotgun and 1.95 or 1.34
+		local finish=sniper and Color3.fromRGB(103,132,137) or shotgun and Color3.fromRGB(153,102,55) or steel
+		b("Receiver",0.44,0.42,sniper and 1.65 or 1.18,0,0,0,finish)
+		b("Grip",0.31,0.66,0.38,0,-0.42,0.4,metal,CFrame.Angles(-0.24,0,0))
+		b("TriggerGuard",0.16,0.08,0.44,0,-0.44,0.04,metal)
+		b("Barrel",0.2,0.2,length,0,0.12,-length*0.5-0.34,metal)
+		b("Muzzle",0.25,0.25,0.14,0,0.12,-length-0.34,metal)
+		b("Bore",0.13,0.13,0.01,0,0.12,-length-0.414,Color3.fromRGB(10,14,18))
+		if sniper or shotgun then
+			b("Stock",0.32,0.32,0.85,0,-0.03,1.05,finish)
+			b("Buttpad",0.35,0.48,0.15,0,-0.08,1.46,metal)
+		end
+		if sniper then
+			b("Magazine",0.3,0.53,0.44,0,-0.39,-0.26,metal)
+			b("Bolt",0.24,0.12,0.13,0.32,0.16,0.16,steel)
+			box("Scope",Vector3.new(1.42,0.4,0.4),Vector3.new(0,0.58,-0.26),metal,CFrame.Angles(0,math.pi/2,0),Enum.PartType.Cylinder)
+			box("ScopeRim",Vector3.new(0.19,0.55,0.55),Vector3.new(0,0.58,-0.92),finish,CFrame.Angles(0,math.pi/2,0),Enum.PartType.Cylinder)
+		elseif shotgun then
+			b("MagazineTube",0.16,0.17,1.54,0,-0.12,-1.34,steel)
+			b("Pump",0.47,0.33,0.82,0,-0.13,-1.19,finish)
+			for i=1,5 do b("Pump rib",0.48,0.035,0.05,0,0.037,-0.89-i*0.09,metal) end
+		else
+			box("Cylinder",Vector3.new(0.51,0.58,0.58),Vector3.new(0,0.03,-0.08),metal,CFrame.Angles(0,math.pi/2,0),Enum.PartType.Cylinder)
+			b("FrontSight",0.065,0.13,0.1,0,0.26,-1.46,steel)
+		end
+	elseif id=="knife" then
+        b("Grip",0.24,0.72,0.22,0,-0.55,0,metal)
+        b("Pommel",0.28,0.12,0.25,0,-0.94,0,steel)
+        b("Guard",0.55,0.09,0.28,0,-0.15,0,metal)
+        blade("Blade",1.1,0.28,0,0.44,0)
+        b("Fuller",0.055,0.8,0.13,0,0.42,0,Color3.fromRGB(74,86,97))
+        for i=1,5 do b("GripRidge",0.26,0.045,0.24,0,-0.2-i*0.12,0,Color3.fromRGB(24,30,36)) end
+    elseif def.kind=="melee" then
 		if id=="fists" then
 			b("LeftFist",0.5,0.6,0.65,-0.65,0,-0.25,tan); b("RightFist",0.5,0.6,0.65,0.65,0,-0.25,tan)
 		elseif id=="riot_shield" then
