@@ -6,6 +6,7 @@ local GuiService=game:GetService("GuiService")
 local Weapons=require(game.ReplicatedStorage.ZIVRA.Weapons)
 local Models=require(game.ReplicatedStorage.ZIVRA.Models)
 local T=require(game.ReplicatedStorage.ZIVRA.Theme)
+local Icons=require(script.Parent.WeaponIcons)
 local UI={category=1,selected={},menu=false,cards={},tabPreviews={},touch={},settings={},hudLayout={}}
 local function make(class,parent,props)
 	local x=Instance.new(class)
@@ -296,17 +297,91 @@ function UI.init(send,onMenu,action)
 	UI.rematchButton=button(UI.matchCard,"REMATCH",UDim2.new(0,12,1,-56),UDim2.new(0.5,-18,0,44),function() send("Rematch") end)
 	UI.resultLobby=button(UI.matchCard,"RETURN TO LOBBY",UDim2.new(0.5,6,1,-56),UDim2.new(0.5,-18,0,44),function() send("Lobby") end)
 	for _, item in ipairs({UI.rematchButton,UI.resultLobby}) do item.ZIndex=6;item.Modal=true end
+	UI.initDuelLoadout(send)
 	UI.flash=make("Frame",UI.root,{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.fromRGB(130,143,158),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=50})
 	UI.root:GetPropertyChangedSignal("AbsoluteSize"):Connect(UI.resize)
 	UI.grid:GetPropertyChangedSignal("AbsoluteSize"):Connect(UI.resize)
 	UI.resize(); UI.applyLayout()
 end
+local function weaponStats(weapon)
+	if weapon.kind=="heal" then return string.format("+%d HP  ·  %.0fs use",weapon.heal,weapon.windup) end
+	if weapon.kind=="melee" then return string.format("%d damage  ·  %.2fs recovery",weapon.damage,weapon.interval) end
+	if weapon.pellets then return string.format("%.0f damage max  ·  %d pellets",weapon.damage*weapon.pellets,weapon.pellets) end
+	return string.format("%d body  ·  %d RPM",weapon.damage,math.floor(60/weapon.interval+0.5))
+end
+
+function UI.initDuelLoadout(send)
+	local backdrop=make("Frame",UI.root,{Name="PreRoundLoadout",Size=UDim2.fromScale(1,1),BackgroundColor3=T.Background,BackgroundTransparency=0.18,Visible=false,ZIndex=10})
+	make("TextButton",backdrop,{Text="",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Modal=true,ZIndex=10})
+	local panel=make("Frame",backdrop,{Size=UDim2.new(0.9,0,0.92,0),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),BackgroundColor3=T.Surface,BorderSizePixel=0,ZIndex=11})
+	make("UISizeConstraint",panel,{MaxSize=Vector2.new(610,490)})
+	round(panel)
+	stroke(panel)
+	local title=label(panel,"MATCH LOADOUT",20,UDim2.fromOffset(15,8),UDim2.new(1,-30,0,27),T.Text)
+	title.Font=T.Bold
+	title.ZIndex=12
+	local status=label(panel,"",12,UDim2.fromOffset(15,37),UDim2.new(1,-30,0,18),T.Muted)
+	status.ZIndex=12
+	local list=make("ScrollingFrame",panel,{Position=UDim2.fromOffset(15,62),Size=UDim2.new(1,-30,1,-125),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=4,ZIndex=12})
+	make("UIListLayout",list,{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder})
+	local confirm=button(panel,"CONFIRM LOADOUT",UDim2.new(0,15,1,-54),UDim2.new(1,-30,0,44),function()
+		local duel=UI.state and UI.state.duel
+		if duel and duel.phase=="Loadout" and not duel.confirmed and workspace:GetServerTimeNow()<duel.deadline then
+			send("ConfirmLoadout",table.clone(UI.duelSelection))
+		end
+	end)
+	confirm.ZIndex=12
+	UI.duelLoadout={frame=backdrop,list=list,status=status,confirm=confirm,rows={}}
+	for order,weapon in ipairs(Weapons.List) do
+		if not Weapons.Launch[weapon.id] then continue end
+		local row=button(list,"",UDim2.new(),UDim2.new(1,-10,0,48),function()
+			local duel=UI.state and UI.state.duel
+			if duel and duel.phase=="Loadout" and not duel.confirmed and workspace:GetServerTimeNow()<duel.deadline then
+				UI.duelSelection[weapon.slot]=weapon.id
+				UI.highlightDuelLoadout()
+			end
+		end)
+		row.Name=weapon.id
+		row.ZIndex=13
+		row.LayoutOrder=100*weapon.slot+order
+		Icons.draw(row,weapon.id,UDim2.fromOffset(8,10),UDim2.fromOffset(60,30))
+		local name=label(row,weapon.name,14,UDim2.fromOffset(76,4),UDim2.new(1,-85,0,20),T.Text)
+		local detail=label(row,Weapons.Categories[weapon.slot].."  ·  "..weaponStats(weapon),11,UDim2.fromOffset(76,24),UDim2.new(1,-85,0,19),T.Muted)
+		name.ZIndex=14
+		detail.ZIndex=14
+		detail.TextTruncate=Enum.TextTruncate.AtEnd
+		UI.duelLoadout.rows[weapon.id]=row
+	end
+end
+
+function UI.highlightDuelLoadout()
+	for id,row in pairs(UI.duelLoadout.rows) do
+		local selected=UI.duelSelection[Weapons.ById[id].slot]==id
+		row.UIStroke.Color=selected and T.Cyan or T.Line
+		row.BackgroundColor3=selected and T.Raised or T.Surface
+	end
+end
+
 function UI.update(state)
 	local old=UI.state; UI.state=state; UI.settings=state.settings
 	local duel=state.duel
 	local active=not duel or duel.phase=="Active"
+	local selecting=duel and duel.phase=="Loadout"
+	UI.duelLoadout.frame.Visible=selecting==true
+	if selecting then
+		if not old or not old.duel or old.duel.phase~="Loadout" then
+			UI.duelSelection=table.clone(duel.loadout or state.loadout)
+			UI.duelLoadout.list.CanvasPosition=Vector2.zero
+		elseif duel.confirmed then
+			UI.duelSelection=table.clone(duel.loadout)
+		end
+		for id,row in pairs(UI.duelLoadout.rows) do row.Visible=state.owned[id]==true; row.Active=not duel.confirmed end
+		UI.duelLoadout.confirm.Active=not duel.confirmed
+		UI.duelLoadout.confirm.Text=duel.confirmed and "LOADOUT LOCKED" or "CONFIRM LOADOUT"
+		UI.highlightDuelLoadout()
+	end
 	UI.matchScore.Visible=duel~=nil
-	UI.matchCard.Visible=duel~=nil and not active and not UI.menu
+	UI.matchCard.Visible=duel~=nil and not active and not selecting and not UI.menu
 	UI.top.Text="ZIVRA  /  "..state.mode:upper()..(state.queued and " / QUEUED" or "")
 	UI.currency.Text=tostring(state.currency).." CREDITS"..(state.offline and " / UNSAVED" or "")
 	UI.inviteButton.Visible=state.mode=="Lobby"; UI.nav.Visible=state.mode=="Lobby"; UI.returnButton.Visible=state.mode~="Lobby" and active; UI.resetButton.Visible=state.mode=="Range"
@@ -362,8 +437,10 @@ local function updateMatch(duel)
 	UI.resultLobby.Position=UDim2.new(UI.rematchButton.Visible and 0.5 or 0.25,6,1,-56)
 	UI.rematchButton.Text=duel.rematch and "WAITING FOR OPPONENT" or "REMATCH"
 	if duel.phase=="Versus" then
-		UI.matchTitle.Text="VERTEX YARD"
+		UI.matchTitle.Text="ZIVRA ARENA"
 		UI.matchDetail.Text=duel.name.."  VS  "..duel.opponent
+	elseif duel.phase=="Loadout" then
+		UI.duelLoadout.status.Text=string.format("%ds  ·  %s",count,duel.opponentConfirmed and "OPPONENT READY" or "SELECT YOUR EQUIPMENT")
 	elseif duel.phase=="Countdown" then
 		UI.matchTitle.Text=tostring(math.max(1,count))
 		UI.matchDetail.Text=string.format("ROUND %d",duel.round)

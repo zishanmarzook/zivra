@@ -289,7 +289,7 @@ task.spawn(function()
  while gui.Parent do
   if launch then
    local queued=p:GetAttribute('ZIVRAQueued')
-   foot.Text=queued and 'WAITING FOR AN OPPONENT' or 'VERTEX YARD  /  1V1'
+   foot.Text=queued and 'WAITING FOR AN OPPONENT' or 'ZIVRA  /  1V1'
   elseif state then
    local party=state.party;local elapsed=party.queuedAt and math.max(0,math.floor(workspace:GetServerTimeNow()-party.queuedAt)) or 0
    foot.Text=(modes[party.mode] and modes[party.mode].Name or party.mode)..'  /  '..#party.members..' IN PARTY  /  '..party.status..(party.status=='Searching' and ' '..elapsed..'s' or '')
@@ -310,7 +310,7 @@ combatVisibility()
 if launch then
  p:GetAttributeChangedSignal('ZIVRAQueued'):Connect(function()
   local queued=p:GetAttribute('ZIVRAQueued')
-  foot.Text=queued and 'WAITING FOR AN OPPONENT' or 'VERTEX YARD  /  1V1'
+  foot.Text=queued and 'WAITING FOR AN OPPONENT' or 'ZIVRA  /  1V1'
   status.Text=queued and 'MATCHMAKING' or 'HEADQUARTERS'
   if opened and page=='Play' then render() end
  end)

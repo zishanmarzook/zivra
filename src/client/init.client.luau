@@ -3,6 +3,7 @@ local UIS=game:GetService("UserInputService")
 local CAS=game:GetService("ContextActionService")
 local RunService=game:GetService("RunService")
 local GuiService=game:GetService("GuiService")
+local Lighting=game:GetService("Lighting")
 local player=Players.LocalPlayer
 local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
 local request=Shared:WaitForChild("Request")
@@ -17,6 +18,39 @@ local nextFire=0; local burstToken=0; local sprint=false; local aim=false
 local originalCameraMode=player.CameraMode
 local originalFOV=workspace.CurrentCamera.FieldOfView
 local originalSensitivity=UIS.MouseDeltaSensitivity
+local lobbyLighting
+local lobbyAtmosphere
+local arenaLighting={
+	Ambient=Color3.fromRGB(119,124,131),
+	OutdoorAmbient=Color3.fromRGB(155,163,176),
+	Brightness=2,
+	ClockTime=14.3,
+	ExposureCompensation=0.05,
+}
+local function setArenaLighting(active)
+	if active and not lobbyLighting then
+		lobbyLighting={}
+		lobbyAtmosphere={}
+		for key,value in pairs(arenaLighting) do
+			lobbyLighting[key]=Lighting[key]
+			Lighting[key]=value
+		end
+		for _,effect in Lighting:GetChildren() do
+			if effect:IsA("Atmosphere") then
+				lobbyAtmosphere[effect]={density=effect.Density,haze=effect.Haze}
+				effect.Density=0.12
+				effect.Haze=0.2
+			end
+		end
+	elseif not active and lobbyLighting then
+		for key,value in pairs(lobbyLighting) do Lighting[key]=value end
+		for effect,old in pairs(lobbyAtmosphere) do
+			if effect.Parent==Lighting then effect.Density=old.density;effect.Haze=old.haze end
+		end
+		lobbyLighting=nil
+		lobbyAtmosphere=nil
+	end
+end
 local function send(action,value) request:FireServer(action,value) end
 local function direction()
 	local cam=workspace.CurrentCamera; local size=cam.ViewportSize
@@ -171,8 +205,14 @@ feedback.OnClientEvent:Connect(function(kind,data)
         UI.top.Visible=data.mode=="Range";UI.currency.Visible=false
         UI.menuButton.Visible=data.mode~="Lobby" and (not data.duel or data.duel.phase=="Active")
         if data.mode~="Lobby" or UI.menu then UI.gui.Enabled=true end
-		VM.equip(data.loadout[data.slot]); VM.visible=data.mode~="Lobby"
-		if data.mode=="Lobby" or data.duel and data.duel.phase=="Result" then
+		local phase=data.duel and data.duel.phase
+		setArenaLighting(data.mode=="Duel")
+		if changed then
+			if phase=="Loadout" then nativeControls(true)
+			elseif not UI.menu then nativeControls(false) end
+		end
+		VM.equip(data.loadout[data.slot]); VM.visible=data.mode=="Range" or phase=="Active" or phase=="Countdown"
+		if data.mode=="Lobby" or phase=="Loadout" or phase=="Result" then
 			player.CameraMode=originalCameraMode
 			UIS.MouseBehavior=Enum.MouseBehavior.Default
 		else

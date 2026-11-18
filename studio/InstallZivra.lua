@@ -11,7 +11,7 @@ Config]=],source=[=[
 return {
  Launch1v1=true,
  Duel={
-  WinsRequired=3, VersusSeconds=2, CountdownSeconds=3, RoundSeconds=90,
+  WinsRequired=3, VersusSeconds=2, LoadoutSeconds=15, CountdownSeconds=3, RoundSeconds=90,
   IntermissionSeconds=3, RespawnGraceSeconds=14, ResultSeconds=22, MaxDraws=3,
  },
  Countdown=10, ScanInterval=0.2, DepartureCooldown=5,
@@ -353,6 +353,119 @@ return Weapons
 ServerScriptService]=],name=[=[
 ZIVRA_Server]=],class=[=[
 Script]=],files={{name=[=[
+BlueprintArena]=],source=[=[
+local Arena = {HalfWidth = 50, HalfLength = 75}
+
+local tile = Color3.fromRGB(222, 225, 227)
+local wall = Color3.fromRGB(235, 237, 238)
+local cover = Color3.fromRGB(201, 207, 211)
+local deck = Color3.fromRGB(216, 221, 224)
+local joint = Color3.fromRGB(190, 199, 205)
+local accent = Color3.fromRGB(103, 163, 176)
+
+function Arena.build(parent, origin)
+	local model = Instance.new("Model")
+	model.Name = "ZIVRA_WhiteObstacleArena"
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+
+	local function part(name, size, frame, color, decoration)
+		local item = Instance.new("Part")
+		item.Name = name
+		item.Size = size
+		item.CFrame = CFrame.new(origin) * frame
+		item.Anchored = true
+		item.Material = Enum.Material.Concrete
+		item.Color = color
+		if decoration then
+			item.CanCollide = false
+			item.CanTouch = false
+			item.CanQuery = false
+			item.CastShadow = false
+		end
+		item.Parent = model
+		return item
+	end
+
+	local function box(name, x, z, width, height, length, color, bottom, yaw)
+		return part(name, Vector3.new(width, height, length),
+			CFrame.new(x, (bottom or 0) + height/2, z) * CFrame.Angles(0, math.rad(yaw or 0), 0), color)
+	end
+
+	local function mark(name, x, y, z, width, length, color)
+		part(name, Vector3.new(width, 0.025, length), CFrame.new(x, y, z), color, true)
+	end
+
+	local function ramp(name, x1, z1, x2, z2, width, startHeight, endHeight)
+		local from, to = Vector3.new(x1, startHeight, z1), Vector3.new(x2, endHeight, z2)
+		local delta = to - from
+		local horizontal = Vector3.new(delta.X, 0, delta.Z)
+		local middle = (from + to)/2
+		local sloped = CFrame.lookAt(middle, middle + horizontal.Unit)
+			* CFrame.Angles(math.atan2(delta.Y, horizontal.Magnitude), 0, 0)
+		part(name, Vector3.new(width, 1, delta.Magnitude), sloped * CFrame.new(0, -0.5, 0), deck)
+	end
+
+	box("Tiled foundation", 0, 0, 104, 2, 154, tile, -2)
+	for x = -40, 40, 10 do mark("Longitudinal joint", x, 0.017, 0, 0.035, 150, joint) end
+	for z = -70, 70, 10 do mark("Transverse joint", 0, 0.018, z, 100, 0.035, joint) end
+	for _, side in ipairs({-1, 1}) do
+		box("Side perimeter", side*51, 0, 2, 23, 154, wall)
+		box("End perimeter", 0, side*76, 100, 23, 2, wall)
+	end
+
+	-- Upper section: offset platforms and a wedge on the left.
+	box("Upper left landing", -35, -54, 15, 7, 14, deck)
+	ramp("Upper left incline", -42, -65, -35, -58, 6, 2.1, 7)
+	box("Upper left wedge base", -42, -66, 7, 2.1, 5, cover, 0, 18)
+	box("Upper middle low step", -9, -51, 12, 3, 7, deck)
+	box("Upper middle raised block", 1, -55, 23, 9.5, 9, cover)
+	box("Upper right platform", 29, -56, 14, 11.5, 16, cover)
+	box("Upper right recessed step", 37, -49, 8, 5.5, 9, deck)
+	ramp("Upper right access", 41, -35, 39, -46, 6, 0.1, 5.5)
+
+	-- Upper-middle section: two diagonals frame the exposed crossing.
+	ramp("Upper narrow diagonal", -36, -23, -24, -42, 4.5, 0.1, 6.6)
+	box("Upper narrow landing", -23, -43, 7, 6.6, 7, cover, 0, -28)
+	ramp("Upper broad diagonal", 25, -17, 14, -36, 10, 0.1, 5.5)
+	box("Upper broad landing", 13, -38, 11, 5.5, 6, cover, 0, 22)
+
+	-- Central section: tall lateral cover and an elevated square deck.
+	box("Central left wall", -30, -4, 8, 15.8, 25, cover, 0, -10)
+	box("Central right wall", 30, 5, 8.5, 16.5, 24, cover, 0, 13)
+	box("Center canopy", 0, 0, 20, 1.5, 21, deck, 8.7)
+	for _, x in ipairs({-7, 7}) do
+		box("Canopy pier", x, -7, 3, 8.7, 3, cover)
+		box("Canopy pier", x, 7, 3, 8.7, 3, cover)
+	end
+	box("Center approach step", -14, 10, 8, 3.2, 8, deck)
+	box("Center intermediate step", -11, 7, 7, 6.65, 6, cover)
+	box("Center opposite step", 13, -11, 7.5, 4.5, 7, deck)
+	box("Center opposite landing", 11, -8, 6, 7.4, 5, cover)
+
+	-- Lower-middle section: a wide incline and a narrower ledge on a different heading.
+	ramp("Lower broad diagonal", -41, 45, -24, 22, 10, 0.1, 6.1)
+	box("Lower broad landing", -23, 20, 12, 6.1, 7, cover, 0, 19)
+	ramp("Lower narrow diagonal", 36, 41, 24, 22, 4.5, 0.1, 5.2)
+	box("Lower narrow landing", 23, 21, 7, 5.2, 7, cover, 0, -23)
+	box("Lower central divider", 8, 26, 5.5, 12.3, 15, cover, 0, -29)
+	box("Vault barrier", -8, 38, 10, 2.6, 3, cover)
+
+	-- Lower section: small left pad, horizontal center platform and solid right cover.
+	box("Lower left pad", -34, 57, 12, 3.1, 10, deck)
+	box("Lower middle platform", 0, 54, 25, 8, 8, cover)
+	box("Lower right cover", 31, 51, 13, 13.6, 16, cover)
+	box("Lower right access step", 38, 59, 8.5, 4.2, 7, deck)
+	for _, side in ipairs({-1, 1}) do
+		mark("Spawn panel", 0, 0.022, side*65.5, 9, 0.12, accent)
+	end
+
+	model.Parent = parent
+	return model
+end
+
+return Arena
+]=]},
+{name=[=[
 Combat]=],source=[=[
 local Players=game:GetService("Players")
 local Weapons=require(game.ReplicatedStorage.ZIVRA.Weapons)
@@ -427,7 +540,7 @@ function Combat.transition(player,mode,cf)
         local held=player.Character and player.Character:FindFirstChild("ZIVRA_Held"); if held then held:Destroy() end
         cf=s.lobbyReturn or cf
     end
-    s.mode=mode; s.loadout=table.clone(s.profile.loadout); s.slot=1; s.queued=false
+    s.mode=mode; s.loadout=table.clone(mode=="Duel" and s.duelLoadout or s.profile.loadout); s.slot=1; s.queued=false
 	if mode=="Range" then s.rangeStats={shots=0,hits=0,damage=0,started=clock()} end
 	local _,h,r=Combat.alive(player)
 	if r then player.Character:PivotTo(cf); r.AssemblyLinearVelocity=Vector3.zero; s.lastPosition=cf.Position end
@@ -725,6 +838,8 @@ function Duel.new(players, rules, now)
 		score = {0, 0},
 		eliminations = {0, 0},
 		rematch = {},
+		loadouts = {},
+		confirmed = {},
 		round = 0,
 		draws = 0,
 	}, Duel)
@@ -732,6 +847,33 @@ end
 
 function Duel:side(player)
 	return table.find(self.players, player)
+end
+
+function Duel:openLoadout(now)
+	self.phase = "Loadout"
+	self.deadline = now + self.rules.LoadoutSeconds
+end
+
+function Duel:confirm(player, proposed, now, catalog, owned)
+	local side = self:side(player)
+	if not side or self.phase ~= "Loadout" or now >= self.deadline or self.confirmed[side] or type(proposed) ~= "table" then
+		return false
+	end
+	local selected = {}
+	for slot = 1, #catalog.Default do
+		local id = proposed[slot]
+		if type(id) ~= "string" or #id > 40 then return false end
+		local weapon = catalog.ById[id]
+		if not weapon or weapon.slot ~= slot or not catalog.Launch[id] or owned[id] ~= true then return false end
+		selected[slot] = id
+	end
+	self.loadouts[side] = selected
+	self.confirmed[side] = true
+	return true
+end
+
+function Duel:loadoutsLocked(now)
+	return self.phase == "Loadout" and (now >= self.deadline or self.confirmed[1] and self.confirmed[2])
 end
 
 function Duel:countdown(now)
@@ -1338,7 +1480,7 @@ return Yard
 World]=],source=[=[
 -- Additive runtime practice world. Never clears or edits the existing lobby/map.
 local World={Targets={},Origin=Vector3.new(0,1000,0), ArenaOrigin=Vector3.new(600,1000,0)}
-local Yard=require(script.Parent.VertexYard)
+local Arena=require(script.Parent.BlueprintArena)
 local Config=require(game.ReplicatedStorage.ZIVRA.Config)
 local CollectionService=game:GetService("CollectionService")
 local function part(parent,name,size,cf,color,material)
@@ -1364,13 +1506,13 @@ local function prompt(p,text,fn)
 end
 function World.spawn(side,round)
 	local sign=(side+round)%2==0 and 1 or -1
-	local position=World.ArenaOrigin+Vector3.new(0,4.2,62*sign)
+	local position=World.ArenaOrigin+Vector3.new(0,3.4,67*sign)
 	return CFrame.lookAt(position,position-Vector3.new(0,0,sign))
 end
 function World.build(onRange,onLobby,onDuel)
 	assert(not workspace:FindFirstChild("ZIVRA_Runtime"),"Duplicate ZIVRA server startup")
 	local folder=Instance.new("Folder"); folder.Name="ZIVRA_Runtime"; folder.Parent=workspace; World.Folder=folder
-	World.Arena=Yard.build(folder,World.ArenaOrigin)
+	World.Arena=Arena.build(folder,World.ArenaOrigin)
 	local corridor=workspace:FindFirstChild("ZIVRA_Corridor")
 	local spawn=corridor and corridor:FindFirstChild("LobbySpawn") or workspace:FindFirstChild("ZIVRA_Spawn",true)
 	World.LobbyCFrame=spawn and spawn.CFrame+Vector3.new(0,4,0) or CFrame.new(0,6,9)
@@ -1406,7 +1548,7 @@ end
 function World.inBounds(pos,mode)
 	local o=mode=="Range" and World.Origin or World.ArenaOrigin
 	local v=pos-o
-	return math.abs(v.X)<(mode=="Range" and 87 or 62) and math.abs(v.Z)<(mode=="Range" and 122 or 70) and v.Y>0 and v.Y<90
+	return math.abs(v.X)<(mode=="Range" and 87 or Arena.HalfWidth) and math.abs(v.Z)<(mode=="Range" and 122 or Arena.HalfLength) and v.Y>0 and v.Y<90
 end
 function World.step(now)
 	for model,t in pairs(World.Targets) do
@@ -1428,6 +1570,7 @@ local RunService=game:GetService("RunService")
 local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
 local Rules=require(Shared.Rules)
 local Config=require(Shared.Config)
+local Weapons=require(Shared.Weapons)
 local Duel=require(script.Duel)
 local Traversal=require(script.Traversal)
 local Profiles=require(script.Profiles)
@@ -1479,6 +1622,8 @@ local function publishMatch(current)
 				won=current.winner==side, decided=current.winner~=nil,
 				roundWon=current.roundWinner==side, roundDecided=current.roundWinner~=nil,
 				rematchAllowed=current.rematchAllowed, rematch=current.rematch[side]==true,
+				loadout=current.loadouts[side], confirmed=current.confirmed[side]==true,
+				opponentConfirmed=current.confirmed[opponent]==true,
 			}
 			Combat.snapshot(player)
 		end
@@ -1500,6 +1645,7 @@ local function returnToHQ(player)
 	local wasInArena=s.mode=="Duel"
 	s.duel=nil
 	s.duelView=nil
+	s.duelLoadout=nil
 	player:SetAttribute("ZIVRADuelPhase",nil)
 	freeze(player,false)
 	Combat.transition(player,"Lobby",World.LobbyCFrame)
@@ -1593,6 +1739,8 @@ local function startDuel(first,second,now)
 	for side,p in ipairs(players) do
 		local s=Combat.States[p]
 		s.duel={id=match, phase="Versus"}
+		s.duelLoadout=nil
+		match.loadouts[side]=table.clone(s.profile.loadout)
 		p:SetAttribute("ZIVRAQueued",false)
 		Combat.transition(p,"Duel",World.spawn(side,1))
 		freeze(p,true)
@@ -1631,13 +1779,16 @@ local function matchStep(now)
 		startDuel(current.players[2],current.players[1],now)
 		return
 	end
-	if now<current.deadline then return end
+	if now<current.deadline and not current:loadoutsLocked(now) then return end
 	if current.phase=="Active" then
 		local _,first=Combat.alive(current.players[1])
 		local _,second=Combat.alive(current.players[2])
 		if current:timeout(first and first.Health or 0,second and second.Health or 0,now) then roundEnded(current) end
 	elseif current.phase=="Result" then
 		releaseMatch(current)
+	elseif current.phase=="Versus" then
+		current:openLoadout(now)
+		publishMatch(current)
 	elseif current.phase=="Countdown" then
 		if not Combat.alive(current.players[1]) or not Combat.alive(current.players[2]) then
 			cancelMatch(current,"A player did not respawn")
@@ -1657,6 +1808,7 @@ local function matchStep(now)
 		for side,player in ipairs(current.players) do
 			local s=Combat.States[player]
 			s.duel.phase="Countdown"
+			s.duelLoadout=current.loadouts[side]
 			Combat.transition(player,"Duel",World.spawn(side,current.round))
 			freeze(player,true)
 		end
@@ -1763,6 +1915,10 @@ request.OnServerEvent:Connect(function(player,action,value)
 	elseif action=="Range" then enterRange(player)
 	elseif action=="Lobby" then if s.mode~="Lobby" then lobby(player) end
 	elseif action=="Queue" then if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+1; queue(player) end
+	elseif action=="ConfirmLoadout" then
+		if match and s.duel and s.duel.id==match and match:confirm(player,value,os.clock(),Weapons,s.profile.owned) then
+			publishMatch(match)
+		end
 	elseif action=="Rematch" then
 		if match and s.duel and s.duel.id==match and match:vote(player) then
 			local first,second=match.players[1],match.players[2]
@@ -1932,6 +2088,7 @@ local GuiService=game:GetService("GuiService")
 local Weapons=require(game.ReplicatedStorage.ZIVRA.Weapons)
 local Models=require(game.ReplicatedStorage.ZIVRA.Models)
 local T=require(game.ReplicatedStorage.ZIVRA.Theme)
+local Icons=require(script.Parent.WeaponIcons)
 local UI={category=1,selected={},menu=false,cards={},tabPreviews={},touch={},settings={},hudLayout={}}
 local function make(class,parent,props)
 	local x=Instance.new(class)
@@ -2222,17 +2379,91 @@ function UI.init(send,onMenu,action)
 	UI.rematchButton=button(UI.matchCard,"REMATCH",UDim2.new(0,12,1,-56),UDim2.new(0.5,-18,0,44),function() send("Rematch") end)
 	UI.resultLobby=button(UI.matchCard,"RETURN TO LOBBY",UDim2.new(0.5,6,1,-56),UDim2.new(0.5,-18,0,44),function() send("Lobby") end)
 	for _, item in ipairs({UI.rematchButton,UI.resultLobby}) do item.ZIndex=6;item.Modal=true end
+	UI.initDuelLoadout(send)
 	UI.flash=make("Frame",UI.root,{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.fromRGB(130,143,158),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=50})
 	UI.root:GetPropertyChangedSignal("AbsoluteSize"):Connect(UI.resize)
 	UI.grid:GetPropertyChangedSignal("AbsoluteSize"):Connect(UI.resize)
 	UI.resize(); UI.applyLayout()
 end
+local function weaponStats(weapon)
+	if weapon.kind=="heal" then return string.format("+%d HP  ·  %.0fs use",weapon.heal,weapon.windup) end
+	if weapon.kind=="melee" then return string.format("%d damage  ·  %.2fs recovery",weapon.damage,weapon.interval) end
+	if weapon.pellets then return string.format("%.0f damage max  ·  %d pellets",weapon.damage*weapon.pellets,weapon.pellets) end
+	return string.format("%d body  ·  %d RPM",weapon.damage,math.floor(60/weapon.interval+0.5))
+end
+
+function UI.initDuelLoadout(send)
+	local backdrop=make("Frame",UI.root,{Name="PreRoundLoadout",Size=UDim2.fromScale(1,1),BackgroundColor3=T.Background,BackgroundTransparency=0.18,Visible=false,ZIndex=10})
+	make("TextButton",backdrop,{Text="",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Modal=true,ZIndex=10})
+	local panel=make("Frame",backdrop,{Size=UDim2.new(0.9,0,0.92,0),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),BackgroundColor3=T.Surface,BorderSizePixel=0,ZIndex=11})
+	make("UISizeConstraint",panel,{MaxSize=Vector2.new(610,490)})
+	round(panel)
+	stroke(panel)
+	local title=label(panel,"MATCH LOADOUT",20,UDim2.fromOffset(15,8),UDim2.new(1,-30,0,27),T.Text)
+	title.Font=T.Bold
+	title.ZIndex=12
+	local status=label(panel,"",12,UDim2.fromOffset(15,37),UDim2.new(1,-30,0,18),T.Muted)
+	status.ZIndex=12
+	local list=make("ScrollingFrame",panel,{Position=UDim2.fromOffset(15,62),Size=UDim2.new(1,-30,1,-125),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=4,ZIndex=12})
+	make("UIListLayout",list,{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder})
+	local confirm=button(panel,"CONFIRM LOADOUT",UDim2.new(0,15,1,-54),UDim2.new(1,-30,0,44),function()
+		local duel=UI.state and UI.state.duel
+		if duel and duel.phase=="Loadout" and not duel.confirmed and workspace:GetServerTimeNow()<duel.deadline then
+			send("ConfirmLoadout",table.clone(UI.duelSelection))
+		end
+	end)
+	confirm.ZIndex=12
+	UI.duelLoadout={frame=backdrop,list=list,status=status,confirm=confirm,rows={}}
+	for order,weapon in ipairs(Weapons.List) do
+		if not Weapons.Launch[weapon.id] then continue end
+		local row=button(list,"",UDim2.new(),UDim2.new(1,-10,0,48),function()
+			local duel=UI.state and UI.state.duel
+			if duel and duel.phase=="Loadout" and not duel.confirmed and workspace:GetServerTimeNow()<duel.deadline then
+				UI.duelSelection[weapon.slot]=weapon.id
+				UI.highlightDuelLoadout()
+			end
+		end)
+		row.Name=weapon.id
+		row.ZIndex=13
+		row.LayoutOrder=100*weapon.slot+order
+		Icons.draw(row,weapon.id,UDim2.fromOffset(8,10),UDim2.fromOffset(60,30))
+		local name=label(row,weapon.name,14,UDim2.fromOffset(76,4),UDim2.new(1,-85,0,20),T.Text)
+		local detail=label(row,Weapons.Categories[weapon.slot].."  ·  "..weaponStats(weapon),11,UDim2.fromOffset(76,24),UDim2.new(1,-85,0,19),T.Muted)
+		name.ZIndex=14
+		detail.ZIndex=14
+		detail.TextTruncate=Enum.TextTruncate.AtEnd
+		UI.duelLoadout.rows[weapon.id]=row
+	end
+end
+
+function UI.highlightDuelLoadout()
+	for id,row in pairs(UI.duelLoadout.rows) do
+		local selected=UI.duelSelection[Weapons.ById[id].slot]==id
+		row.UIStroke.Color=selected and T.Cyan or T.Line
+		row.BackgroundColor3=selected and T.Raised or T.Surface
+	end
+end
+
 function UI.update(state)
 	local old=UI.state; UI.state=state; UI.settings=state.settings
 	local duel=state.duel
 	local active=not duel or duel.phase=="Active"
+	local selecting=duel and duel.phase=="Loadout"
+	UI.duelLoadout.frame.Visible=selecting==true
+	if selecting then
+		if not old or not old.duel or old.duel.phase~="Loadout" then
+			UI.duelSelection=table.clone(duel.loadout or state.loadout)
+			UI.duelLoadout.list.CanvasPosition=Vector2.zero
+		elseif duel.confirmed then
+			UI.duelSelection=table.clone(duel.loadout)
+		end
+		for id,row in pairs(UI.duelLoadout.rows) do row.Visible=state.owned[id]==true; row.Active=not duel.confirmed end
+		UI.duelLoadout.confirm.Active=not duel.confirmed
+		UI.duelLoadout.confirm.Text=duel.confirmed and "LOADOUT LOCKED" or "CONFIRM LOADOUT"
+		UI.highlightDuelLoadout()
+	end
 	UI.matchScore.Visible=duel~=nil
-	UI.matchCard.Visible=duel~=nil and not active and not UI.menu
+	UI.matchCard.Visible=duel~=nil and not active and not selecting and not UI.menu
 	UI.top.Text="ZIVRA  /  "..state.mode:upper()..(state.queued and " / QUEUED" or "")
 	UI.currency.Text=tostring(state.currency).." CREDITS"..(state.offline and " / UNSAVED" or "")
 	UI.inviteButton.Visible=state.mode=="Lobby"; UI.nav.Visible=state.mode=="Lobby"; UI.returnButton.Visible=state.mode~="Lobby" and active; UI.resetButton.Visible=state.mode=="Range"
@@ -2288,8 +2519,10 @@ local function updateMatch(duel)
 	UI.resultLobby.Position=UDim2.new(UI.rematchButton.Visible and 0.5 or 0.25,6,1,-56)
 	UI.rematchButton.Text=duel.rematch and "WAITING FOR OPPONENT" or "REMATCH"
 	if duel.phase=="Versus" then
-		UI.matchTitle.Text="VERTEX YARD"
+		UI.matchTitle.Text="ZIVRA ARENA"
 		UI.matchDetail.Text=duel.name.."  VS  "..duel.opponent
+	elseif duel.phase=="Loadout" then
+		UI.duelLoadout.status.Text=string.format("%ds  ·  %s",count,duel.opponentConfirmed and "OPPONENT READY" or "SELECT YOUR EQUIPMENT")
 	elseif duel.phase=="Countdown" then
 		UI.matchTitle.Text=tostring(math.max(1,count))
 		UI.matchDetail.Text=string.format("ROUND %d",duel.round)
@@ -2390,12 +2623,129 @@ end
 return Viewmodel
 ]=]},
 {name=[=[
+WeaponIcons]=],source=[=[
+-- Original silhouettes. Runs of equal-color pixels share one UI rectangle.
+local Icons = {}
+local colors = {
+	K = Color3.fromRGB(16, 23, 30),
+	D = Color3.fromRGB(63, 77, 86),
+	S = Color3.fromRGB(172, 191, 198),
+	T = Color3.fromRGB(190, 142, 78),
+	C = Color3.fromRGB(88, 182, 192),
+	W = Color3.fromRGB(222, 231, 233),
+	R = Color3.fromRGB(215, 85, 86),
+}
+local sprites = {
+	assault_rifle = {
+		"......KKKK..........",
+		".....KCCCK..........",
+		"KKKKKKKKKKKKKK......",
+		"KDDKTTTTTTDDDDKKKKKK",
+		"KKKKTTTTTTTKKKSSSSSK",
+		"...KKKDKKKK...KKKKKK",
+		".....KDK.KDK........",
+		".....KK..KDK........",
+		".........KKK........",
+	},
+	sniper_rifle = {
+		".......KKKKKK.......",
+		"......KCSCCCCK......",
+		".......KKKKKK.......",
+		"KKKKKKKKKKKKKKKKKKKK",
+		"KDSKSSSSDDDSSSSSSSSK",
+		"KKKKSCCDKKKKKKKKKKKK",
+		"....KDK.KDK.........",
+		"....KK..KKK.........",
+	},
+	shotgun = {
+		".............KK.....",
+		"KKKKKKKKKKKKKKKKKKKK",
+		"KTTKKSSSSDDDDSSSSSSK",
+		"KKKKTSSSSKTTTTTKKKKK",
+		"...KKDKKKKKKKKK.....",
+		"....KDK.............",
+		"....KKK.............",
+	},
+	revolver = {
+		"......KKKK..........",
+		".....KSSSSKKKKKKK...",
+		"....KDSSSDSSSSSSK...",
+		"...KDKSSSKKKKKKKK...",
+		"..KTTKKKKK..........",
+		"..KTTK..............",
+		"..KKKK..............",
+	},
+	handgun = {
+		"..............KK....",
+		"....KKKKKKKKKKKKK...",
+		"....KSSSSSSSSSSSK...",
+		"....KDDCCDDDDDDDK...",
+		"....KDDDKKKKKKKKK...",
+		"...KDDDK............",
+		"...KDDDK............",
+		"...KKKKK............",
+	},
+	knife = {
+		"..............KKK...",
+		"...........KKKSSK...",
+		"....KKKKKKKSSSSK....",
+		"..KKDDDDKSSSSKK.....",
+		"..KDDDDDKKKKK.......",
+		"..KKKKKKK...........",
+	},
+	medkit = {
+		".......KKKKKK.......",
+		"......KDKKKKDK......",
+		"....KKKKKKKKKKKK....",
+		"...KWWWWRRWWWWWWK...",
+		"...KWWRRRRRRWWWWK...",
+		"...KWWRRRRRRWWWWK...",
+		"...KWWWWRRWWWWWWK...",
+		"...KWWWWWWWWWWWWK...",
+		"....KKKKKKKKKKKK....",
+	},
+}
+
+function Icons.draw(parent, id, position, size)
+	local rows = sprites[id]
+	if not rows then return end
+	local canvas = Instance.new("Frame")
+	canvas.BackgroundTransparency = 1
+	canvas.Position = position
+	canvas.Size = size
+	canvas.ZIndex = parent.ZIndex
+	canvas.Parent = parent
+	for y, row in ipairs(rows) do
+		local x = 1
+		while x <= #row do
+			local code = row:sub(x, x)
+			local nextX = x + 1
+			while nextX <= #row and row:sub(nextX, nextX) == code do nextX += 1 end
+			local color = colors[code]
+			if color then
+				local run = Instance.new("Frame")
+				run.BorderSizePixel = 0
+				run.BackgroundColor3 = color
+				run.Position = UDim2.fromScale((x-1)/20, (y-1)/10)
+				run.Size = UDim2.fromScale((nextX-x)/20, 1/10)
+				run.ZIndex = parent.ZIndex + 1
+				run.Parent = canvas
+			end
+			x = nextX
+		end
+	end
+end
+
+return Icons
+]=]},
+{name=[=[
 ]=],source=[=[
 local Players=game:GetService("Players")
 local UIS=game:GetService("UserInputService")
 local CAS=game:GetService("ContextActionService")
 local RunService=game:GetService("RunService")
 local GuiService=game:GetService("GuiService")
+local Lighting=game:GetService("Lighting")
 local player=Players.LocalPlayer
 local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
 local request=Shared:WaitForChild("Request")
@@ -2410,6 +2760,39 @@ local nextFire=0; local burstToken=0; local sprint=false; local aim=false
 local originalCameraMode=player.CameraMode
 local originalFOV=workspace.CurrentCamera.FieldOfView
 local originalSensitivity=UIS.MouseDeltaSensitivity
+local lobbyLighting
+local lobbyAtmosphere
+local arenaLighting={
+	Ambient=Color3.fromRGB(119,124,131),
+	OutdoorAmbient=Color3.fromRGB(155,163,176),
+	Brightness=2,
+	ClockTime=14.3,
+	ExposureCompensation=0.05,
+}
+local function setArenaLighting(active)
+	if active and not lobbyLighting then
+		lobbyLighting={}
+		lobbyAtmosphere={}
+		for key,value in pairs(arenaLighting) do
+			lobbyLighting[key]=Lighting[key]
+			Lighting[key]=value
+		end
+		for _,effect in Lighting:GetChildren() do
+			if effect:IsA("Atmosphere") then
+				lobbyAtmosphere[effect]={density=effect.Density,haze=effect.Haze}
+				effect.Density=0.12
+				effect.Haze=0.2
+			end
+		end
+	elseif not active and lobbyLighting then
+		for key,value in pairs(lobbyLighting) do Lighting[key]=value end
+		for effect,old in pairs(lobbyAtmosphere) do
+			if effect.Parent==Lighting then effect.Density=old.density;effect.Haze=old.haze end
+		end
+		lobbyLighting=nil
+		lobbyAtmosphere=nil
+	end
+end
 local function send(action,value) request:FireServer(action,value) end
 local function direction()
 	local cam=workspace.CurrentCamera; local size=cam.ViewportSize
@@ -2564,8 +2947,14 @@ feedback.OnClientEvent:Connect(function(kind,data)
         UI.top.Visible=data.mode=="Range";UI.currency.Visible=false
         UI.menuButton.Visible=data.mode~="Lobby" and (not data.duel or data.duel.phase=="Active")
         if data.mode~="Lobby" or UI.menu then UI.gui.Enabled=true end
-		VM.equip(data.loadout[data.slot]); VM.visible=data.mode~="Lobby"
-		if data.mode=="Lobby" or data.duel and data.duel.phase=="Result" then
+		local phase=data.duel and data.duel.phase
+		setArenaLighting(data.mode=="Duel")
+		if changed then
+			if phase=="Loadout" then nativeControls(true)
+			elseif not UI.menu then nativeControls(false) end
+		end
+		VM.equip(data.loadout[data.slot]); VM.visible=data.mode=="Range" or phase=="Active" or phase=="Countdown"
+		if data.mode=="Lobby" or phase=="Loadout" or phase=="Result" then
 			player.CameraMode=originalCameraMode
 			UIS.MouseBehavior=Enum.MouseBehavior.Default
 		else

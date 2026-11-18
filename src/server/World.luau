@@ -1,6 +1,6 @@
 -- Additive runtime practice world. Never clears or edits the existing lobby/map.
 local World={Targets={},Origin=Vector3.new(0,1000,0), ArenaOrigin=Vector3.new(600,1000,0)}
-local Yard=require(script.Parent.VertexYard)
+local Arena=require(script.Parent.BlueprintArena)
 local Config=require(game.ReplicatedStorage.ZIVRA.Config)
 local CollectionService=game:GetService("CollectionService")
 local function part(parent,name,size,cf,color,material)
@@ -26,13 +26,13 @@ local function prompt(p,text,fn)
 end
 function World.spawn(side,round)
 	local sign=(side+round)%2==0 and 1 or -1
-	local position=World.ArenaOrigin+Vector3.new(0,4.2,62*sign)
+	local position=World.ArenaOrigin+Vector3.new(0,3.4,67*sign)
 	return CFrame.lookAt(position,position-Vector3.new(0,0,sign))
 end
 function World.build(onRange,onLobby,onDuel)
 	assert(not workspace:FindFirstChild("ZIVRA_Runtime"),"Duplicate ZIVRA server startup")
 	local folder=Instance.new("Folder"); folder.Name="ZIVRA_Runtime"; folder.Parent=workspace; World.Folder=folder
-	World.Arena=Yard.build(folder,World.ArenaOrigin)
+	World.Arena=Arena.build(folder,World.ArenaOrigin)
 	local corridor=workspace:FindFirstChild("ZIVRA_Corridor")
 	local spawn=corridor and corridor:FindFirstChild("LobbySpawn") or workspace:FindFirstChild("ZIVRA_Spawn",true)
 	World.LobbyCFrame=spawn and spawn.CFrame+Vector3.new(0,4,0) or CFrame.new(0,6,9)
@@ -68,7 +68,7 @@ end
 function World.inBounds(pos,mode)
 	local o=mode=="Range" and World.Origin or World.ArenaOrigin
 	local v=pos-o
-	return math.abs(v.X)<(mode=="Range" and 87 or 62) and math.abs(v.Z)<(mode=="Range" and 122 or 70) and v.Y>0 and v.Y<90
+	return math.abs(v.X)<(mode=="Range" and 87 or Arena.HalfWidth) and math.abs(v.Z)<(mode=="Range" and 122 or Arena.HalfLength) and v.Y>0 and v.Y<90
 end
 function World.step(now)
 	for model,t in pairs(World.Targets) do

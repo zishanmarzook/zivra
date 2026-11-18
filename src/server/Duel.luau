@@ -10,6 +10,8 @@ function Duel.new(players, rules, now)
 		score = {0, 0},
 		eliminations = {0, 0},
 		rematch = {},
+		loadouts = {},
+		confirmed = {},
 		round = 0,
 		draws = 0,
 	}, Duel)
@@ -17,6 +19,33 @@ end
 
 function Duel:side(player)
 	return table.find(self.players, player)
+end
+
+function Duel:openLoadout(now)
+	self.phase = "Loadout"
+	self.deadline = now + self.rules.LoadoutSeconds
+end
+
+function Duel:confirm(player, proposed, now, catalog, owned)
+	local side = self:side(player)
+	if not side or self.phase ~= "Loadout" or now >= self.deadline or self.confirmed[side] or type(proposed) ~= "table" then
+		return false
+	end
+	local selected = {}
+	for slot = 1, #catalog.Default do
+		local id = proposed[slot]
+		if type(id) ~= "string" or #id > 40 then return false end
+		local weapon = catalog.ById[id]
+		if not weapon or weapon.slot ~= slot or not catalog.Launch[id] or owned[id] ~= true then return false end
+		selected[slot] = id
+	end
+	self.loadouts[side] = selected
+	self.confirmed[side] = true
+	return true
+end
+
+function Duel:loadoutsLocked(now)
+	return self.phase == "Loadout" and (now >= self.deadline or self.confirmed[1] and self.confirmed[2])
 end
 
 function Duel:countdown(now)

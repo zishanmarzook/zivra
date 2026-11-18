@@ -4,8 +4,8 @@ This candidate targets place `121932020544473` in universe `10776573114`. Its st
 
 ## Match rules
 
-- Headquarters queues real players in the current server, in arrival order. One duel uses Vertex Yard at a time.
-- The versus screen leads into a protected three-second countdown. The first player to score three rounds wins.
+- Headquarters queues real players in the current server, in arrival order. One duel uses the white obstacle arena at a time.
+- After versus, each player has up to 15 seconds to confirm their equipment. Two confirmations open the protected three-second countdown early. A player who does not confirm keeps their existing loadout. The first player to score three rounds wins.
 - Eliminations score a round. At 90 seconds, the player with more health wins the round. An equal-health round replays without scoring. Three such draws end the match in a draw.
 - Both players must vote for a rematch. Leaving an active duel or disconnecting ends it without a win award.
 - The server rebuilds ammunition, charges and equipment at the start of each round, and restores the saved loadout on return to headquarters.
@@ -16,6 +16,6 @@ Match timers live in `src/shared/Config.luau`. Weapon values live in `src/shared
 
 The launch uses the population of the existing cloud place. The core Rojo mapping covers `src/` only. The headquarters and R15 movement integration also depends on the corresponding sources in `studio-snapshot/` and the existing Studio instances. Keep both sets synchronized after selective edits. The historical audited UI updater targets its earlier baseline. Its supported input is documented in the November 15 review.
 
-Launch mode removes player access to legacy modes and keeps the existing geometry and legacy source. Vertex Yard is generated through `src/server/VertexYard.luau`. The sprint and slide use the existing R15 movement controller. Vault and mantle check obstacle height and sweep body clearance on the server. Crouch changes movement speed and pose, and the arena tunnel supports standing clearance.
+Launch mode removes player access to legacy modes and keeps the existing geometry and legacy source. The reference arena is authored in `src/server/BlueprintArena.luau` as five zones inside a 100 × 150 stud footprint. The arena has standing clearance throughout. It uses client-side lighting changes so the headquarters retains its lighting. Native pixel art in the match loadout uses `src/client/WeaponIcons.luau` with no uploaded image dependency. The sprint and slide use the existing R15 movement controller. Vault and mantle check obstacle height and sweep body clearance on the server. Crouch changes movement speed and pose.
 
 Run `python scripts/test.py --tools <luau-directory>` for compile and automated coverage. Run `python scripts/build_installer.py` to regenerate the baseline installer for source consistency.

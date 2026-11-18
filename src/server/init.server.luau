@@ -3,6 +3,7 @@ local RunService=game:GetService("RunService")
 local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
 local Rules=require(Shared.Rules)
 local Config=require(Shared.Config)
+local Weapons=require(Shared.Weapons)
 local Duel=require(script.Duel)
 local Traversal=require(script.Traversal)
 local Profiles=require(script.Profiles)
@@ -54,6 +55,8 @@ local function publishMatch(current)
 				won=current.winner==side, decided=current.winner~=nil,
 				roundWon=current.roundWinner==side, roundDecided=current.roundWinner~=nil,
 				rematchAllowed=current.rematchAllowed, rematch=current.rematch[side]==true,
+				loadout=current.loadouts[side], confirmed=current.confirmed[side]==true,
+				opponentConfirmed=current.confirmed[opponent]==true,
 			}
 			Combat.snapshot(player)
 		end
@@ -75,6 +78,7 @@ local function returnToHQ(player)
 	local wasInArena=s.mode=="Duel"
 	s.duel=nil
 	s.duelView=nil
+	s.duelLoadout=nil
 	player:SetAttribute("ZIVRADuelPhase",nil)
 	freeze(player,false)
 	Combat.transition(player,"Lobby",World.LobbyCFrame)
@@ -168,6 +172,8 @@ local function startDuel(first,second,now)
 	for side,p in ipairs(players) do
 		local s=Combat.States[p]
 		s.duel={id=match, phase="Versus"}
+		s.duelLoadout=nil
+		match.loadouts[side]=table.clone(s.profile.loadout)
 		p:SetAttribute("ZIVRAQueued",false)
 		Combat.transition(p,"Duel",World.spawn(side,1))
 		freeze(p,true)
@@ -206,13 +212,16 @@ local function matchStep(now)
 		startDuel(current.players[2],current.players[1],now)
 		return
 	end
-	if now<current.deadline then return end
+	if now<current.deadline and not current:loadoutsLocked(now) then return end
 	if current.phase=="Active" then
 		local _,first=Combat.alive(current.players[1])
 		local _,second=Combat.alive(current.players[2])
 		if current:timeout(first and first.Health or 0,second and second.Health or 0,now) then roundEnded(current) end
 	elseif current.phase=="Result" then
 		releaseMatch(current)
+	elseif current.phase=="Versus" then
+		current:openLoadout(now)
+		publishMatch(current)
 	elseif current.phase=="Countdown" then
 		if not Combat.alive(current.players[1]) or not Combat.alive(current.players[2]) then
 			cancelMatch(current,"A player did not respawn")
@@ -232,6 +241,7 @@ local function matchStep(now)
 		for side,player in ipairs(current.players) do
 			local s=Combat.States[player]
 			s.duel.phase="Countdown"
+			s.duelLoadout=current.loadouts[side]
 			Combat.transition(player,"Duel",World.spawn(side,current.round))
 			freeze(player,true)
 		end
@@ -338,6 +348,10 @@ request.OnServerEvent:Connect(function(player,action,value)
 	elseif action=="Range" then enterRange(player)
 	elseif action=="Lobby" then if s.mode~="Lobby" then lobby(player) end
 	elseif action=="Queue" then if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+1; queue(player) end
+	elseif action=="ConfirmLoadout" then
+		if match and s.duel and s.duel.id==match and match:confirm(player,value,os.clock(),Weapons,s.profile.owned) then
+			publishMatch(match)
+		end
 	elseif action=="Rematch" then
 		if match and s.duel and s.duel.id==match and match:vote(player) then
 			local first,second=match.players[1],match.players[2]

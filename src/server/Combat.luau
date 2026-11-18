@@ -71,7 +71,7 @@ function Combat.transition(player,mode,cf)
         local held=player.Character and player.Character:FindFirstChild("ZIVRA_Held"); if held then held:Destroy() end
         cf=s.lobbyReturn or cf
     end
-    s.mode=mode; s.loadout=table.clone(s.profile.loadout); s.slot=1; s.queued=false
+    s.mode=mode; s.loadout=table.clone(mode=="Duel" and s.duelLoadout or s.profile.loadout); s.slot=1; s.queued=false
 	if mode=="Range" then s.rangeStats={shots=0,hits=0,damage=0,started=clock()} end
 	local _,h,r=Combat.alive(player)
 	if r then player.Character:PivotTo(cf); r.AssemblyLinearVelocity=Vector3.zero; s.lastPosition=cf.Position end
