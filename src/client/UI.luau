@@ -166,7 +166,7 @@ function UI.init(send,onMenu,action)
 	UI.returnButton=button(UI.root,"LOBBY",UDim2.fromOffset(16,44),UDim2.fromOffset(88,32),function() send("Lobby") end)
 	UI.inviteButton=button(UI.root,"INVITE",UDim2.fromOffset(16,44),UDim2.fromOffset(88,32),function() UI.setMenu(true,"Invites") end)
 	UI.resetButton=button(UI.root,"RESET RANGE",UDim2.fromOffset(112,44),UDim2.fromOffset(110,32),function() send("ResetRange") end)
-	UI.menuButton=button(UI.root,"LOADOUT",UDim2.new(1,-104,0,44),UDim2.fromOffset(88,32),function() UI.setMenu(not UI.menu) end)
+	UI.menuButton=button(UI.root,"SETTINGS",UDim2.new(1,-104,0,44),UDim2.fromOffset(88,32),function() UI.setMenu(not UI.menu,UI.state.mode=="Duel" and "Settings" or "Weapons") end)
 	UI.rangeStats=label(UI.root,"",11,UDim2.fromOffset(16,96),UDim2.fromOffset(280,36),T.Muted); UI.rangeStats.TextWrapped=true
 	UI.quickbar=make("Frame",UI.root,{AnchorPoint=Vector2.new(0.5,1),Position=UDim2.new(0.5,0,1,-12),Size=UDim2.new(0.44,0,0,42),BackgroundTransparency=1})
 	make("UIListLayout",UI.quickbar,{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,4)})
@@ -235,7 +235,7 @@ function UI.init(send,onMenu,action)
 		local id=UI.selected[UI.category] or UI.state.loadout[UI.category]
 		if UI.state.mode=="Range" or UI.state.owned[id] then send("Equip",id) else UI.notice("Enter the range to try this locked item") end
 	end)
-	UI.options=make("ScrollingFrame",UI.overlay,{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromScale(0.82,0.88),BackgroundColor3=T.Surface,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,440),ScrollBarThickness=3,Visible=false})
+	UI.options=make("ScrollingFrame",UI.overlay,{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromScale(0.82,0.88),BackgroundColor3=T.Surface,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,550),ScrollBarThickness=3,Visible=false})
 	make("UISizeConstraint",UI.options,{MaxSize=Vector2.new(560,500)})
 	label(UI.options,"SETTINGS",20,UDim2.fromOffset(20,16),UDim2.fromOffset(300,30)).Font=T.Bold
 	button(UI.options,"X",UDim2.new(1,-52,0,12),UDim2.fromOffset(36,36),function() UI.setMenu(false) end)
@@ -254,7 +254,16 @@ function UI.init(send,onMenu,action)
 		UI.setMenu(false); UI.editing=true; UI.editDone.Visible=true; UI.smaller.Visible=true; UI.larger.Visible=true; UI.touchLayer.Visible=true; UI.notice("Drag buttons, then save. Combat is paused locally.")
 	end)
 	button(UI.options,"RESET TOUCH LAYOUT",UDim2.fromOffset(20,316),UDim2.new(1,-40,0,40),function() UI.hudLayout={}; UI.applyLayout(); send("Settings",{hud={}}) end)
-	label(UI.options,"Native Roblox joystick and jump remain available.\nPress B to open your loadout, R to reload, and G for utility.",11,UDim2.fromOffset(20,368),UDim2.new(1,-40,0,54),T.Muted).TextWrapped=true
+	UI.motionButton=button(UI.options,"",UDim2.fromOffset(20,366),UDim2.new(1,-40,0,44),function()
+		send("Settings",{reducedMotion=not UI.settings.reducedMotion})
+	end)
+	UI.fovButton=button(UI.options,"",UDim2.fromOffset(20,417),UDim2.new(1,-40,0,44),function()
+		local fov=UI.settings.fov or 74
+		send("Settings",{fov=fov>=95 and 65 or fov+5})
+	end)
+	UI.sprintButton=button(UI.options,"",UDim2.fromOffset(20,468),UDim2.new(1,-40,0,44),function()
+		send("Settings",{autoSprint=not UI.settings.autoSprint})
+	end)
 	UI.tasks=make("Frame",UI.overlay,{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromScale(0.84,0.85),BackgroundColor3=T.Surface,BorderSizePixel=0,Visible=false})
 	make("UISizeConstraint",UI.tasks,{MaxSize=Vector2.new(560,360)})
 	label(UI.tasks,"DAILY TASKS",20,UDim2.fromOffset(20,16),UDim2.new(1,-80,0,30)).Font=T.Bold
@@ -278,7 +287,17 @@ function UI.init(send,onMenu,action)
 	button(UI.invites,"DECLINE",UDim2.new(0.5,4,0,100),UDim2.new(0.5,-24,0,36),function() send("DeclineInvite"); UI.invitationUntil=0; UI.setMenu(false) end)
 	UI.playerList=make("ScrollingFrame",UI.invites,{Position=UDim2.fromOffset(20,148),Size=UDim2.new(1,-40,1,-164),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=3})
 	make("UIListLayout",UI.playerList,{Padding=UDim.new(0,8)})
-	UI.matchScore=label(UI.root,"",14,UDim2.fromScale(0,0),UDim2.new(1,0,0,34),T.Text)
+	UI.matchScore=label(UI.root,"",14,UDim2.new(0.5,0,0,7),UDim2.new(0.84,0,0,28),T.Text)
+	UI.matchScore.AnchorPoint=Vector2.new(0.5,0)
+	UI.matchScore.BackgroundColor3=T.Background
+	UI.matchScore.BackgroundTransparency=0.12
+	make("UISizeConstraint",UI.matchScore,{MaxSize=Vector2.new(490,28)})
+	round(UI.matchScore,4)
+	UI.headshot=label(UI.root,"HEADSHOT",11,UDim2.new(0.5,0,0.5,20),UDim2.fromOffset(128,24),T.Gold)
+	UI.headshot.AnchorPoint=Vector2.new(0.5,0)
+	UI.headshot.TextXAlignment=Enum.TextXAlignment.Center
+	UI.headshot.Font=T.Bold
+	UI.headshot.Visible=false
 	UI.matchScore.Name="DuelScore"
 	UI.matchScore.TextXAlignment=Enum.TextXAlignment.Center
 	UI.matchScore.Font=T.Bold
@@ -399,6 +418,9 @@ function UI.update(state)
 	UI.rangeStats.Text=string.format("%d SHOTS   %d HITS   %.0f DAMAGE\n%.1f DAMAGE / SEC",rs.shots,rs.hits,rs.damage,rs.damage/seconds)
 	UI.qualityButton.Text="VFX QUALITY  /  "..state.settings.quality:upper()
 	UI.flashButton.Text="REDUCED FLASH  /  "..(state.settings.reduceFlash and "ON" or "OFF")
+	UI.motionButton.Text="REDUCED MOTION  /  "..(state.settings.reducedMotion and "ON" or "OFF")
+	UI.fovButton.Text="FIELD OF VIEW  /  "..tostring(state.settings.fov or 74)
+	UI.sprintButton.Text="AUTO SPRINT  /  "..(state.settings.autoSprint and "ON" or "OFF")
 	UI.volumeLabel.Text=string.format("VOLUME  %d%%",math.floor(state.settings.volume*100+0.5))
 	UI.sensitivityLabel.Text=string.format("AIM SENSITIVITY  %.1f",state.settings.sensitivity or 1)
 	if not UI.editing then UI.hudLayout=state.settings.hud or {}; UI.applyLayout() end
@@ -428,6 +450,11 @@ function UI.showDamage(from)
  if typeof(from)~="Vector3" then return end
  UI.damageFrom=from;UI.damageUntil=os.clock()+0.7
 end
+function UI.showHit(headshot)
+	UI.hitUntil=os.clock()+0.16
+	UI.hit.TextColor3=headshot and T.Gold or T.Text
+	UI.headshotUntil=headshot and os.clock()+0.42 or UI.headshotUntil
+end
 local function updateMatch(duel)
 	local count=math.max(0,math.ceil(duel.deadline-workspace:GetServerTimeNow()))
 	local timer=duel.phase=="Active" and string.format("  %d:%02d",math.floor(count/60),count%60) or ""
@@ -451,6 +478,7 @@ local function updateMatch(duel)
 		UI.matchTitle.Text=duel.decided and (duel.won and "VICTORY" or "DEFEAT") or (duel.reason=="Draw limit" and "DRAW" or "DUEL ENDED")
 		UI.matchDetail.Text=string.format("%d / %d   ·   %d ELIMINATIONS\n%s",duel.score,duel.opponentScore,duel.eliminations,duel.reason or "")
 	end
+	UI.matchTitle.TextColor3=duel.phase=="Result" and duel.decided and (duel.won and T.Cyan or T.Red) or T.Text
 end
 function UI.step(humanoid,spread)
  if UI.state and UI.state.duel then updateMatch(UI.state.duel) end
@@ -470,6 +498,7 @@ function UI.step(humanoid,spread)
 	UI.cross[3].Position=UDim2.fromOffset(0,-spread); UI.cross[4].Position=UDim2.fromOffset(0,spread)
 	UI.toast.Visible=os.clock()<(UI.toastUntil or 0)
 	UI.hit.Visible=not UI.menu and os.clock()<(UI.hitUntil or 0)
+	UI.headshot.Visible=not UI.menu and os.clock()<(UI.headshotUntil or 0)
     UI.hit.TextTransparency=math.clamp(1-((UI.hitUntil or 0)-os.clock())/0.13,0,1)
 	if UI.invitationUntil and os.clock()>=UI.invitationUntil then UI.inviteText.Text="Invite another player in the lobby."; UI.invitationUntil=nil end
 end

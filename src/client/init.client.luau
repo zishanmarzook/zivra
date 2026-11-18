@@ -9,9 +9,11 @@ local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
 local request=Shared:WaitForChild("Request")
 local feedback=Shared:WaitForChild("Feedback")
 local Weapons=require(Shared.Weapons)
+local Config=require(Shared.Config)
 local UI=require(script.UI)
 local Effects=require(script.Effects)
 local VM=require(script.Viewmodel)
+local headquarters
 local state,held,fireTouch,chargeStart
 local cameraRecoil=CFrame.identity
 local nextFire=0; local burstToken=0; local sprint=false; local aim=false
@@ -134,13 +136,22 @@ local function nativeControls(open)
  end
 end
 UI.init(send,function(open)
+ if open and headquarters then headquarters:setOpen(false) end
  nativeControls(open)
+ if headquarters then headquarters:update(state,open) end
     if UI.gui then UI.gui.Enabled=open or (state and state.mode~="Lobby") or false end
 	stop(); aim=false; VM.aim=false; send("Menu",open)
 	UIS.MouseBehavior=open and Enum.MouseBehavior.Default or (state and state.mode~="Lobby" and Enum.MouseBehavior.LockCenter or Enum.MouseBehavior.Default)
 	player:SetAttribute("ZIVRACombatMenu",open)
     if open then workspace.CurrentCamera.FieldOfView=originalFOV end
 end,action)
+if Config.Launch1v1 then
+	local Menu=require(script.HeadquartersMenu)
+	headquarters=Menu.new(player,send,nativeControls,function(screen)
+		headquarters:setOpen(false)
+		UI.setMenu(true,screen)
+	end)
+end
 -- Modal text button releases first-person mouse lock while menus are open.
 UI.equip.Modal=true
 UI.gui.Enabled=false
@@ -162,7 +173,7 @@ end
 CAS:BindAction("ZIVRACombat_Menu",function(_,inputState)
 	if UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
 	if state and state.duel and state.duel.phase~="Active" then return Enum.ContextActionResult.Pass end
-	if inputState==Enum.UserInputState.Begin then UI.setMenu(not UI.menu) end
+	if inputState==Enum.UserInputState.Begin then UI.setMenu(not UI.menu,state and state.mode=="Duel" and "Settings" or "Weapons") end
 	return Enum.ContextActionResult.Sink
 end,false,Enum.KeyCode.B,Enum.KeyCode.ButtonY)
 CAS:BindAction("ZIVRACombat_Back",function(_,inputState)
@@ -198,6 +209,7 @@ feedback.OnClientEvent:Connect(function(kind,data)
 		if changed then stop(); VM.reloadStart=nil; aim=false; VM.aim=false end
         if state and state.reloading and not data.reloading then VM.reloadStart=nil end
 		state=data; UI.update(data)
+		if headquarters then headquarters:update(data,UI.menu) end
         UI.gui.Enabled=data.mode~="Lobby" or UI.menu
         UI.nav.Visible=false
         UI.inviteButton.Visible=false
@@ -211,21 +223,42 @@ feedback.OnClientEvent:Connect(function(kind,data)
 			if phase=="Loadout" then nativeControls(true)
 			elseif not UI.menu then nativeControls(false) end
 		end
+		if Config.Launch1v1 then
+			player:SetAttribute("ZIVRAReducedMotion",data.settings.reducedMotion==true)
+			player:SetAttribute("ZIVRASettingAutoSprint",data.settings.autoSprint==true)
+			player:SetAttribute("ZIVRAAppliedFOV",data.settings.fov or originalFOV)
+			local movement=game.ReplicatedStorage:FindFirstChild("ZIVRAMovement")
+			if movement then require(movement.Config).MotionScale=data.settings.reducedMotion and 0 or 1 end
+		end
 		VM.equip(data.loadout[data.slot]); VM.visible=data.mode=="Range" or phase=="Active" or phase=="Countdown"
 		if data.mode=="Lobby" or phase=="Loadout" or phase=="Result" then
-			player.CameraMode=originalCameraMode
-			UIS.MouseBehavior=Enum.MouseBehavior.Default
+			local outsideCombat=Config.Launch1v1 and Enum.CameraMode.Classic or originalCameraMode
+			if player.CameraMode~=outsideCombat then player.CameraMode=outsideCombat end
+			if changed then UIS.MouseBehavior=Enum.MouseBehavior.Default end
 		else
 			player.CameraMode=Enum.CameraMode.LockFirstPerson
 		end
 		UIS.MouseDeltaSensitivity=originalSensitivity*(data.settings.sensitivity or 1)
 		Effects.quality=data.settings.quality; Effects.volume=data.settings.volume
-	elseif kind=="Effect" then Effects.play(data.kind,data.data)
+	elseif kind=="OpenMatchmaking" then
+		if headquarters then headquarters:setOpen(true) end
+	elseif kind=="Effect" then
+		local effect=data.data
+		if data.kind=="shot" then
+			if effect.owner==player.UserId and VM.visible and VM.model then
+				local muzzle=VM.model:FindFirstChild("Muzzle")
+				if muzzle and (muzzle.Position-effect.position).Magnitude<8 then effect.position=muzzle.Position end
+			elseif effect.owner~=player.UserId and effect.audible then
+				local d=Weapons.ById[effect.id]
+				if d then Effects.audio(d,"fire",effect.position,Weapons.Launch[d.id] and Weapons.ById.assault_rifle or nil) end
+			end
+		end
+		Effects.play(data.kind,effect)
 	elseif kind=="Fired" then
 		local d=Weapons.ById[data.id]
-		Effects.audio(d,"fire",workspace.CurrentCamera.CFrame.Position)
+		Effects.audio(d,"fire",workspace.CurrentCamera.CFrame.Position,d.magazine and Weapons.Launch[d.id] and Weapons.ById.assault_rifle or nil)
 		if d.slot==4 or data.slash then VM.fire() end
-	elseif kind=="Hit" then UI.hitUntil=os.clock()+0.13; UI.hit.TextColor3=data.headshot and Color3.fromRGB(255,211,38) or Color3.new(1,1,1)
+	elseif kind=="Hit" then UI.showHit(data.headshot)
 	elseif kind=="Reload" then VM.reload(data.duration)
 	elseif kind=="Healing" then VM.reload(data.duration); UI.notice("Healing - taking damage interrupts")
 	elseif kind=="Hurt" then
@@ -264,7 +297,7 @@ RunService:BindToRenderStep("ZIVRA_Viewmodel",Enum.RenderPriority.Camera.Value+1
 	end
 	cameraRecoil=usable() and not player:GetAttribute("ZIVRAReducedMotion") and CFrame.Angles(VM.kick*0.12,0,0) or CFrame.identity
 	cam.CFrame*=cameraRecoil
-	VM.step(dt,h,UI.menu)
+	VM.step(dt,h,UI.menu,player:GetAttribute("ZIVRAReducedMotion")==true)
 	local d=state and Weapons.ById[state.loadout[state.slot]]
 	local spread=5+(d and d.spread or 0)+VM.kick*30+(h and h.MoveDirection.Magnitude*3 or 0)
 	if aim then spread*=0.65 end

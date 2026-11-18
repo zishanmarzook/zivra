@@ -9,7 +9,7 @@ local function defaults()
 	local owned={}
 	for id in pairs(Weapons.Launch) do owned[id]=true end
 	return {version=1,owned=owned,loadout=table.clone(Weapons.Default),currency=0,
-		settings={quality="Automatic",reduceFlash=true,volume=0.6,sensitivity=1},favorites={},
+		settings={quality="Automatic",reduceFlash=true,volume=0.6,sensitivity=1,reducedMotion=false,autoSprint=false,fov=74},favorites={},
 		daily=Rules.daily(math.floor(os.time()/86400)),stats={kills=0,wins=0,duels=0}}
 end
 local function migrate(raw)
@@ -36,6 +36,9 @@ local function migrate(raw)
 	if type(p.settings.reduceFlash)~="boolean" then p.settings.reduceFlash=true end
 	p.settings.volume=Rules.finite(p.settings.volume) and math.clamp(p.settings.volume,0,1) or 0.6
 	p.settings.sensitivity=Rules.finite(p.settings.sensitivity) and math.clamp(p.settings.sensitivity,0.2,2) or 1
+	p.settings.reducedMotion=p.settings.reducedMotion==true
+	p.settings.autoSprint=p.settings.autoSprint==true
+	p.settings.fov=Rules.finite(p.settings.fov) and math.clamp(p.settings.fov,65,95) or 74
 	if type(p.settings.hud)~="table" then p.settings.hud={} end
 	assert(type(p.currency)=="number" and p.currency>=0,"Malformed currency")
 	if type(p.daily)~="table" or p.daily.day~=math.floor(os.time()/86400) then p.daily=Rules.daily(math.floor(os.time()/86400)) end

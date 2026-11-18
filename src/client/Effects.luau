@@ -3,6 +3,10 @@ local Debris=game:GetService("Debris")
 local Effects={quality="Automatic",volume=0.6,pool={},active=0,audioActive=0}
 local colors={permafrost=Color3.fromRGB(160,230,255),freeze_ray=Color3.fromRGB(160,230,255),
 	energy_rifle=Color3.fromRGB(0,189,255),energy_pistols=Color3.fromRGB(0,189,255),distortion=Color3.fromRGB(162,43,255)}
+local impacts={
+	Concrete=Color3.fromRGB(204,200,192),Metal=Color3.fromRGB(255,185,99),
+	CorrodedMetal=Color3.fromRGB(230,159,99),Glass=Color3.fromRGB(153,202,218),
+}
 local folder=Instance.new("Folder"); folder.Name="ZIVRA_LocalEffects"; folder.Parent=workspace
 local function take()
 	if Effects.active>=80 then return nil end
@@ -34,6 +38,14 @@ function Effects.play(kind,data)
 	local low=Effects.quality=="Low" or Effects.quality=="Automatic" and game.UserInputService.TouchEnabled
 	if kind=="shot" or kind=="projectile" then
 		Effects.line(data.position,data.finish,c,kind=="shot" and 0.035 or 0.09,0.08)
+		local impact=data.surface and impacts[data.surface]
+		if kind=="shot" and impact and data.normal then
+			local point=data.finish+data.normal*0.07
+			Effects.pulse(point,impact,low and 0.30 or 0.48,0.14)
+			if not low and data.surface=="Metal" then
+				Effects.line(point,point+data.normal*0.54,impact,0.065,0.09)
+			end
+		end
 	elseif kind=="freeze" or kind=="flame" then
 		Effects.line(data.position,data.finish,kind=="freeze" and Color3.fromRGB(140,225,255) or c,0.35,0.16)
 		if not low then Effects.pulse(data.finish,c,1.3,0.2) end
@@ -71,12 +83,13 @@ function Effects.play(kind,data)
 		Effects.pulse(data.position,color,kind=="explosion" and (data.radius or 10) or 1.5,kind=="explosion" and 0.3 or 0.16)
 	end
 end
-function Effects.audio(def,event,position)
-	local id=def.assets.audio[event]
+function Effects.audio(def,event,position,fallback)
+	local id=def.assets.audio[event] or (fallback and fallback.assets.audio[event])
 	if not id or id=="" or Effects.volume<=0 or Effects.audioActive>=24 then return end
     Effects.audioActive+=1
 	local carrier=Instance.new("Part"); carrier.Anchored=true; carrier.Transparency=1; carrier.CanCollide=false; carrier.CanQuery=false; carrier.CanTouch=false; carrier.Size=Vector3.one*0.1; carrier.Position=position; carrier.Parent=folder
 	local sound=Instance.new("Sound"); sound.SoundId=id; sound.Volume=Effects.volume*0.5; sound.RollOffMinDistance=8; sound.RollOffMaxDistance=120; sound.Parent=carrier
+	sound.PlaybackSpeed=def.firePitch or 1
 	local cleaned=false
     local function clean()
         if cleaned then return end;cleaned=true;Effects.audioActive-=1;carrier:Destroy()

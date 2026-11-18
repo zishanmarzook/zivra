@@ -1,6 +1,7 @@
 -- Additive runtime practice world. Never clears or edits the existing lobby/map.
-local World={Targets={},Origin=Vector3.new(0,1000,0), ArenaOrigin=Vector3.new(600,1000,0)}
+local World={Targets={},Origin=Vector3.new(0,1000,0), ArenaOrigin=Vector3.new(600,1000,0), HQOrigin=Vector3.new(0,240,110)}
 local Arena=require(script.Parent.BlueprintArena)
+local Headquarters=require(script.Parent.Headquarters)
 local Config=require(game.ReplicatedStorage.ZIVRA.Config)
 local CollectionService=game:GetService("CollectionService")
 local function part(parent,name,size,cf,color,material)
@@ -29,14 +30,18 @@ function World.spawn(side,round)
 	local position=World.ArenaOrigin+Vector3.new(0,3.4,67*sign)
 	return CFrame.lookAt(position,position-Vector3.new(0,0,sign))
 end
-function World.build(onRange,onLobby,onDuel)
+function World.build(onRange,onLobby,onDuel,onStation)
 	assert(not workspace:FindFirstChild("ZIVRA_Runtime"),"Duplicate ZIVRA server startup")
 	local folder=Instance.new("Folder"); folder.Name="ZIVRA_Runtime"; folder.Parent=workspace; World.Folder=folder
 	World.Arena=Arena.build(folder,World.ArenaOrigin)
 	local corridor=workspace:FindFirstChild("ZIVRA_Corridor")
 	local spawn=corridor and corridor:FindFirstChild("LobbySpawn") or workspace:FindFirstChild("ZIVRA_Spawn",true)
 	World.LobbyCFrame=spawn and spawn.CFrame+Vector3.new(0,4,0) or CFrame.new(0,6,9)
-	if Config.Launch1v1 then return end
+	if Config.Launch1v1 then
+		World.Headquarters=Headquarters.build(folder,World.HQOrigin,onStation)
+		World.LobbyCFrame=World.Headquarters.arrival
+		return
+	end
 	local range=Instance.new("Model"); range.Name="PracticeRange"; range.Parent=folder
 	local o=World.Origin
 	part(range,"Floor",Vector3.new(180,2,250),CFrame.new(o),white,Enum.Material.Concrete)
@@ -64,6 +69,12 @@ function World.build(onRange,onLobby,onDuel)
 	label(entrance,"ZIVRA / TRAINING"); prompt(entrance,"Enter Shooting Range",onRange)
 	local duel=part(folder,"DuelKiosk",Vector3.new(8,5,1),CFrame.new(base+Vector3.new(-12,0,0)),dark)
 	label(duel,"ZIVRA / 1 V 1"); prompt(duel,"Queue / Leave Queue",onDuel)
+end
+function World.queueStatus(queued,busy)
+	local hq=World.Headquarters
+	if not hq then return end
+	local message=queued>0 and (queued.." IN QUEUE") or busy and "DUEL IN PROGRESS" or "PLAY 1V1"
+	if hq.status.Text~=message then hq.status.Text=message end
 end
 function World.inBounds(pos,mode)
 	local o=mode=="Range" and World.Origin or World.ArenaOrigin

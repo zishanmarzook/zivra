@@ -58,6 +58,19 @@ fallback.loadouts[1]=table.clone(Weapons.Default)
 fallback:openLoadout(2)
 check(fallback:loadoutsLocked(17) and not fallback:confirm(a,Weapons.Default,17,Weapons,Weapons.Launch), "Selection locks exactly at the deadline")
 check(fallback.loadouts[1][1]==Weapons.Default[1], "Unconfirmed selection keeps its original fallback")
+for _,phase in ipairs({"Versus","Loadout","Active"}) do
+	local interrupted=Duel.new({a,b},rules,0)
+	interrupted.phase=phase
+	interrupted:finish(nil,"Opponent disconnected",1)
+	check(interrupted.score[1]==0 and interrupted.score[2]==0 and not interrupted.rematchAllowed,
+		"Disconnect awards neither score nor rematch during "..phase)
+end
+local trading=Duel.new({a,b},rules,0)
+trading:countdown(2)
+trading:begin(5)
+check(trading:resolve(2,"Elimination",6),"First server-accepted elimination records the point")
+check(not trading:resolve(1,"Elimination",6) and trading.score[2]==1 and trading.score[1]==0,
+	"A second elimination in the same server tick cannot score")
 
 local draws = Duel.new({a, b}, rules, 0)
 for i = 1, rules.MaxDraws do

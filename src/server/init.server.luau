@@ -181,14 +181,17 @@ local function startDuel(first,second,now)
 	publishMatch(match)
 end
 
-local function queue(player)
+local function queue(player,wantsQueue)
 	local s=Combat.States[player]
-	if not s or s.mode~="Lobby" or not Combat.alive(player) then return end
-	if s.queued then
-		s.queued=false
-	else
+	if not s or s.mode~="Lobby" then return end
+	if wantsQueue==nil then wantsQueue=not s.queued end
+	if wantsQueue then
+		if s.queued or s.readyCharacter~=player.Character or not Combat.alive(player) then return end
 		queueOrder+=1
 		s.queued=queueOrder
+	else
+		if not s.queued then return end
+		s.queued=false
 	end
 	player:SetAttribute("ZIVRAQueued",s.queued and true or false)
 	Combat.snapshot(player,s.queued and "Waiting for an opponent" or "Left queue")
@@ -248,7 +251,10 @@ local function matchStep(now)
 		publishMatch(current)
 	end
 end
-World.build(enterRange,lobby,queue)
+World.build(enterRange,lobby,queue,function(player)
+	local s=Combat.States[player]
+	if s and s.mode=="Lobby" then Combat.send(player,"OpenMatchmaking") end
+end)
 local function characterAdded(player,character)
 	local h=character:WaitForChild("Humanoid",10); local root=character:WaitForChild("HumanoidRootPart",10)
 	if not h or not root or player.Character~=character then return end
@@ -265,6 +271,7 @@ local function characterAdded(player,character)
 		player:SetAttribute("ZIVRAQueued",false)
 		player:SetAttribute("ZIVRACombatMode","Lobby")
 		tools(player)
+		if World.Headquarters then character:PivotTo(World.LobbyCFrame) end
 		Combat.reset(player)
 	end
 	s.readyCharacter=character
@@ -284,6 +291,7 @@ local function characterAdded(player,character)
 	if connections[player] then connections[player].death=death else death:Disconnect() end
 end
 local function added(player)
+	if World.Headquarters then player.RespawnLocation=World.Headquarters.spawn end
 	local profile,offline=Profiles.load(player)
 	if not profile then return end
 	if not player.Parent then Profiles.save(player,true); return end
@@ -316,6 +324,9 @@ local function settings(s,value)
 	local p=s.profile.settings
 	if ({Low=true,Medium=true,High=true,Automatic=true})[value.quality] then p.quality=value.quality end
 	if type(value.reduceFlash)=="boolean" then p.reduceFlash=value.reduceFlash end
+	if type(value.reducedMotion)=="boolean" then p.reducedMotion=value.reducedMotion end
+	if type(value.autoSprint)=="boolean" then p.autoSprint=value.autoSprint end
+	if Rules.finite(value.fov) then p.fov=math.clamp(value.fov,65,95) end
 	if Rules.finite(value.volume) then p.volume=math.clamp(value.volume,0,1) end
 	if Rules.finite(value.sensitivity) then p.sensitivity=math.clamp(value.sensitivity,0.2,2) end
 	-- Position and scale overrides are constrained to the action-button safe region.
@@ -347,7 +358,10 @@ request.OnServerEvent:Connect(function(player,action,value)
 		if type(value)=="boolean" then s.menu=value; s.trigger=nil; s.blocking=false; if value then s.epoch+=1 end end
 	elseif action=="Range" then enterRange(player)
 	elseif action=="Lobby" then if s.mode~="Lobby" then lobby(player) end
-	elseif action=="Queue" then if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+1; queue(player) end
+	elseif action=="QueueJoin" then queue(player,true)
+	elseif action=="QueueCancel" then queue(player,false)
+	elseif action=="Queue" then
+		if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+0.5; queue(player) end
 	elseif action=="ConfirmLoadout" then
 		if match and s.duel and s.duel.id==match and match:confirm(player,value,os.clock(),Weapons,s.profile.owned) then
 			publishMatch(match)
@@ -402,8 +416,17 @@ RunService.Heartbeat:Connect(function(dt)
 	if now>snapshotTime then
 		snapshotTime=now+0.3
 		for player in pairs(Combat.States) do Combat.snapshot(player) end
-		matchStep(now)
 	end
+end)
+local nextMatchStep=0
+RunService.Heartbeat:Connect(function()
+	local now=os.clock()
+	if now<nextMatchStep then return end
+	nextMatchStep=now+0.18
+	matchStep(now)
+	local queued=0
+	for _,s in pairs(Combat.States) do if s.queued then queued+=1 end end
+	World.queueStatus(queued,match~=nil)
 end)
 task.spawn(function()
 	while not shuttingDown do

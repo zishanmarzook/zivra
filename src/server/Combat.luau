@@ -257,12 +257,15 @@ function Combat.fire(player,dir,release)
 		local hits={}
 		local params=Combat.params(player)
 		local frame=CFrame.lookAt(Vector3.zero,dir)
-		for _=1,d.pellets or 1 do
+		for pellet=1,d.pellets or 1 do
 			local radius=math.sqrt(rng:NextNumber())*spread; local angle=rng:NextNumber()*math.pi*2
 			local direction=(frame*CFrame.Angles(math.sin(angle)*radius,math.cos(angle)*radius,0)).LookVector
 			local hit=workspace:Raycast(head.Position,direction*d.range,params)
 			local finish=hit and hit.Position or head.Position+direction*d.range
-			Combat.fx("shot",{position=head.Position,finish=finish,id=d.id,owner=player.UserId})
+			if pellet<=3 then
+				Combat.fx("shot",{position=head.Position,finish=finish,id=d.id,owner=player.UserId,
+					surface=hit and hit.Material and hit.Material.Name,normal=hit and hit.Normal,audible=pellet==1})
+			end
 			if hit then
 				local model=hit.Instance:FindFirstAncestorOfClass("Model")
 				if model and Combat.canDamage(player,model) then

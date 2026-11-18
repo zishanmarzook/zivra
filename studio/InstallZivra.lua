@@ -265,9 +265,9 @@ return Rules
 {name=[=[
 Theme]=],source=[=[
 -- Shared combat and headquarters design tokens.
-return { Background=Color3.fromRGB(12,16,23), Surface=Color3.fromRGB(22,29,39),
- Raised=Color3.fromRGB(34,44,57), Line=Color3.fromRGB(68,85,103), Text=Color3.fromRGB(242,246,250),
- Muted=Color3.fromRGB(163,179,196), Blue=Color3.fromRGB(36,131,220), Cyan=Color3.fromRGB(64,190,219),
+return { Background=Color3.fromRGB(14,18,21), Surface=Color3.fromRGB(23,29,33),
+ Raised=Color3.fromRGB(34,43,48), Line=Color3.fromRGB(64,77,82), Text=Color3.fromRGB(242,246,247),
+ Muted=Color3.fromRGB(166,180,184), Blue=Color3.fromRGB(36,131,220), Cyan=Color3.fromRGB(112,199,210),
  Purple=Color3.fromRGB(145,160,189), Gold=Color3.fromRGB(232,176,81), Green=Color3.fromRGB(108,190,153),
  Red=Color3.fromRGB(235,92,95), Font=Enum.Font.Gotham, Bold=Enum.Font.GothamBold,
  Spacing={Small=8,Medium=16,Large=24}, Radius=5, Transition=0.16 }
@@ -296,8 +296,8 @@ end
 -- Primary: all 14 explicitly named items.
 gun("assault_rifle","Assault Rifle",1,"auto",17,30,0.1,{spread=0.7,bloom=2,recoil=1.1})
 gun("burst_rifle","Burst Rifle",1,"burst",18,27,0.09,{burst=3,burstPause=0.28,spread=0.35,recoil=1.5})
-gun("sniper_rifle","Sniper Rifle",1,"semi",55,5,1.35,{headshot=2,spread=0.05,reload=2.8,recoil=3.6,falloffStart=300})
-gun("shotgun","Shotgun",1,"pellets",2.75,6,0.85,{pellets=8,spread=3.2,range=90,falloffStart=18,minDamageScale=0.08,reload=2.6,recoil=3})
+gun("sniper_rifle","Sniper Rifle",1,"semi",55,5,1.35,{headshot=2,spread=0.05,reload=2.8,recoil=3.6,falloffStart=300,firePitch=0.68})
+gun("shotgun","Shotgun",1,"pellets",2.75,6,0.85,{pellets=8,spread=3.2,range=90,falloffStart=18,minDamageScale=0.08,reload=2.6,recoil=3,firePitch=0.81})
 gun("minigun","Minigun",1,"auto",9,120,1/15,{spinup=0.7,heatPerShot=0.035,cooling=0.22,spread=3,moveScale=0.65,reload=3.4})
 gun("rpg","RPG",1,"rocket",75,1,1.6,{speed=115,gravity=0,radius=16,range=450,reload=3,recoil=4})
 gun("grenade_launcher","Grenade Launcher",1,"grenade",60,4,0.8,{speed=85,gravity=0.65,radius=13,fuse=2.1,bounce=true,reload=2.8})
@@ -311,7 +311,7 @@ gun("paintball","Paintball",1,"bolt",13,35,0.12,{speed=190,gravity=0.08,paint=tr
 gun("gunblade","Gunblade",1,"semi",23,8,0.4,{slash=42,meleeRange=7,rarity="Experimental"})
 -- Secondary: all 11 explicitly named items.
 gun("handgun","Handgun",2,"semi",25,12,0.24,{reload=1.3,spread=0.4})
-gun("revolver","Revolver",2,"semi",34,6,0.7,{reload=2.5,recoil=2.5,spread=0.2})
+gun("revolver","Revolver",2,"semi",34,6,0.7,{reload=2.5,recoil=2.5,spread=0.2,firePitch=0.92})
 gun("shorty","Shorty",2,"pellets",8,2,0.65,{pellets=7,spread=8,range=55,falloffStart=10,minDamageScale=0.05,reload=1.7})
 gun("uzi","Uzi",2,"auto",12,25,0.075,{spread=1.8,bloom=3,reload=1.4})
 gun("spray","Spray",2,"auto",10,35,0.065,{spread=2.2,bloom=5,reload=1.7})
@@ -726,12 +726,15 @@ function Combat.fire(player,dir,release)
 		local hits={}
 		local params=Combat.params(player)
 		local frame=CFrame.lookAt(Vector3.zero,dir)
-		for _=1,d.pellets or 1 do
+		for pellet=1,d.pellets or 1 do
 			local radius=math.sqrt(rng:NextNumber())*spread; local angle=rng:NextNumber()*math.pi*2
 			local direction=(frame*CFrame.Angles(math.sin(angle)*radius,math.cos(angle)*radius,0)).LookVector
 			local hit=workspace:Raycast(head.Position,direction*d.range,params)
 			local finish=hit and hit.Position or head.Position+direction*d.range
-			Combat.fx("shot",{position=head.Position,finish=finish,id=d.id,owner=player.UserId})
+			if pellet<=3 then
+				Combat.fx("shot",{position=head.Position,finish=finish,id=d.id,owner=player.UserId,
+					surface=hit and hit.Material and hit.Material.Name,normal=hit and hit.Normal,audible=pellet==1})
+			end
 			if hit then
 				local model=hit.Instance:FindFirstAncestorOfClass("Model")
 				if model and Combat.canDamage(player,model) then
@@ -933,6 +936,202 @@ end
 return Duel
 ]=]},
 {name=[=[
+Headquarters]=],source=[=[
+local Shared=game:GetService("ReplicatedStorage"):WaitForChild("ZIVRA")
+local Models=require(Shared.Models)
+local Weapons=require(Shared.Weapons)
+
+local Headquarters={}
+local color={
+	concrete=Color3.fromRGB(55,59,63),
+	floor=Color3.fromRGB(73,77,80),
+	graphite=Color3.fromRGB(29,33,36),
+	black=Color3.fromRGB(16,20,23),
+	metal=Color3.fromRGB(94,103,108),
+	ink=Color3.fromRGB(242,245,245),
+	cyan=Color3.fromRGB(103,187,201),
+	glass=Color3.fromRGB(155,191,199),
+	lamp=Color3.fromRGB(223,235,238),
+}
+
+function Headquarters.build(parent,origin,onStation)
+	local model=Instance.new("Model")
+	model.Name="ZIVRA_Headquarters"
+	model.ModelStreamingMode=Enum.ModelStreamingMode.Persistent
+	local originFrame=CFrame.new(origin)
+
+	local function part(name,x,y,z,sx,sy,sz,tint,material,detail)
+		local item=Instance.new("Part")
+		item.Name=name
+		item.Anchored=true
+		item.Size=Vector3.new(sx,sy,sz)
+		item.CFrame=originFrame*CFrame.new(x,y,z)
+		item.Color=color[tint]
+		item.Material=material or Enum.Material.Metal
+		item.CanTouch=false
+		if detail then
+			item.CanCollide=false
+			item.CanQuery=false
+			item.CastShadow=false
+		end
+		item.Parent=model
+		return item
+	end
+
+	local function sign(board,face,text,tint,font)
+		local gui=Instance.new("SurfaceGui")
+		gui.Name="Sign"
+		gui.Face=face
+		gui.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud=40
+		gui.MaxDistance=100
+		gui.LightInfluence=0
+		gui.Parent=board
+		local label=Instance.new("TextLabel")
+		label.Size=UDim2.fromScale(0.92,0.8)
+		label.Position=UDim2.fromScale(0.04,0.1)
+		label.BackgroundTransparency=1
+		label.Font=font or Enum.Font.GothamBold
+		label.TextColor3=color[tint or "ink"]
+		label.TextScaled=true
+		label.Text=text
+		label.Parent=gui
+		return label
+	end
+
+	local function light(x,y,z,width,depth,range,brightness)
+		local fixture=part("Recessed luminaire",x,y,z,width,0.08,depth,"lamp",Enum.Material.Neon,true)
+		local beam=Instance.new("SurfaceLight")
+		beam.Face=Enum.NormalId.Bottom
+		beam.Range=range
+		beam.Angle=125
+		beam.Brightness=brightness
+		beam.Color=color.lamp
+		beam.Shadows=false
+		beam.Parent=fixture
+	end
+
+	part("Foundation",0,-0.8,0,68,1.6,86,"floor",Enum.Material.Concrete)
+	part("North bulkhead",0,10,-43,68,20,1.7,"concrete",Enum.Material.Concrete)
+	part("South bulkhead",0,10,43,68,20,1.7,"concrete",Enum.Material.Concrete)
+	part("Ceiling",0,19.8,0,68,1.5,86,"black")
+	for _,side in ipairs({-1,1}) do
+		part("Long structural wall",side*34,10,0,1.6,20,86,"concrete",Enum.Material.Concrete)
+		part("Lower wall apron",side*33,1.1,0,0.25,2.2,84,"black")
+		part("Upper wall register",side*33,14.8,-2,0.5,4.2,82,"graphite")
+		part("Floor wayfinding",side*6.5,0.018,17,0.15,0.028,36,"cyan",Enum.Material.SmoothPlastic,true)
+		for _,z in ipairs({-35,-12,12,30}) do
+			part("Buttress",side*31.5,9.4,z,2.8,18.8,2.2,"graphite")
+			part("Buttress cap",side*29.9,9.4,z,0.24,17.6,2.2,"metal")
+		end
+		for _,z in ipairs({-38,-18,2,22,40}) do
+			part("Flush floor joint",side*18.5,0.012,z,24,0.02,0.065,"graphite",Enum.Material.SmoothPlastic,true)
+		end
+	end
+	for _,z in ipairs({-27,0,26}) do
+		part("Overhead girder",0,17.9,z,65,1.7,2.7,"graphite")
+		light(0,16.99,z,27,0.33,23,1.8)
+	end
+	for _,x in ipairs({-10,10}) do
+		part("Entry jamb",x,5.6,29,1.9,11.2,1.6,"graphite")
+		part("Jamb reveal",x,5.7,28.15,0.12,7.2,0.08,"metal",nil,true)
+	end
+	part("Entry lintel",0,11.1,29,22.2,1.5,1.7,"graphite")
+	part("Entry ceiling baffle",0,13.6,35,24,1.3,12,"black")
+	light(0,12.9,36,13,0.23,18,1.4)
+	local entrance=part("Entrance sign",0,11.1,29.89,15,0.85,0.07,"black",nil,true)
+	sign(entrance,Enum.NormalId.Back,"ZIVRA  /  HEADQUARTERS","ink")
+
+	local backdrop=part("Matchmaking backdrop",0,8.1,-40.8,46,13,0.65,"graphite")
+	local wordmark=part("ZIVRA wordmark",0,11.45,-40.42,26,4.3,0.08,"graphite",nil,true)
+	sign(wordmark,Enum.NormalId.Back,"ZIVRA","ink")
+	local banner=part("Mode identification",0,7.7,-40.42,24,1.7,0.08,"black",nil,true)
+	sign(banner,Enum.NormalId.Back,"1V1  /  MATCHMAKING","cyan")
+	local emblem=Instance.new("SurfaceGui")
+	emblem.Face=Enum.NormalId.Back
+	emblem.LightInfluence=0
+	emblem.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+	emblem.PixelsPerStud=24
+	emblem.Parent=backdrop
+	local mark=Instance.new("ImageLabel")
+	mark.BackgroundTransparency=1
+	mark.Size=UDim2.fromScale(0.12,0.43)
+	mark.Position=UDim2.fromScale(0.075,0.235)
+	mark.Image="rbxassetid://129565854362406"
+	mark.ScaleType=Enum.ScaleType.Fit
+	mark.Parent=emblem
+
+	part("Station base",0,0.30,-17.5,14,0.60,7,"graphite")
+	part("Station housing",0,2.1,-17.5,10.5,3,2.5,"black")
+	part("Station top rail",0,3.63,-17.5,10.8,0.12,2.8,"metal")
+	local station=part("Queue display",0,2.65,-16.19,9,1.37,0.12,"graphite")
+	local status=sign(station,Enum.NormalId.Back,"PLAY 1V1","cyan")
+	local prompt=Instance.new("ProximityPrompt")
+	prompt.Name="MatchmakingPrompt"
+	prompt.ActionText="Open matchmaking"
+	prompt.ObjectText="1V1 station"
+	prompt.MaxActivationDistance=12
+	prompt.RequiresLineOfSight=true
+	prompt.Parent=station
+	prompt.Triggered:Connect(function(player)
+		local root=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if root and (root.Position-station.Position).Magnitude<=14 then onStation(player) end
+	end)
+	for _,x in ipairs({-21,21}) do
+		part("Controlled access housing",x,4.6,-39.45,7,9.2,1.7,"black")
+		part("Controlled access leaf",x,4.3,-38.52,5.5,8.4,0.13,"metal")
+		local glass=part("Observation inset",x,6.05,-38.42,3,1.7,0.064,"glass",Enum.Material.Glass,true)
+		glass.Transparency=0.21
+		local access=part("Access identification",x,9.55,-38.43,7,0.75,0.08,"graphite",nil,true)
+		sign(access,Enum.NormalId.Back,"AUTHORIZED ACCESS","ink")
+	end
+
+	local function display(side,z,id)
+		local face=side<0 and Enum.NormalId.Right or Enum.NormalId.Left
+		local weapon=Weapons.ById[id]
+		part("Armory case",side*32.25,4.9,z,1.35,7.5,8.6,"black")
+		part("Armory shelf",side*31.20,2.1,z,2.05,0.18,8.4,"metal")
+		part("Armory lintel",side*31.20,8,z,1.85,0.18,8.4,"metal")
+		local placa=part("Armory nameplate",side*31.12,2.63,z,0.1,0.77,7.4,"graphite",nil,true)
+		sign(placa,face,weapon.name:upper(),"ink")
+		local shape=Models.build(weapon,false)
+		local extents=shape:GetExtentsSize()
+		shape:ScaleTo(math.min(3.5/math.max(extents.Y,0.2),6.7/math.max(extents.Z,0.2),1.38))
+		shape:PivotTo(originFrame*CFrame.new(side*31.02,4.85,z)*CFrame.Angles(0,side<0 and 0 or math.pi,0))
+		shape.Parent=model
+		light(side*30.5,7.81,z,0.34,6.6,7.5,1.15)
+	end
+	for index,id in ipairs({"assault_rifle","sniper_rifle","shotgun","revolver"}) do display(-1,24-(index-1)*10.25,id) end
+	for index,id in ipairs({"handgun","knife","medkit"}) do display(1,24-(index-1)*10.25,id) end
+	for _,side in ipairs({-1,1}) do
+		local header=part("Armory header",side*32.5,10.2,11,0.09,1.2,24,"graphite",nil,true)
+		sign(header,side<0 and Enum.NormalId.Right or Enum.NormalId.Left,"ARMORY","cyan")
+	end
+	part("Equipment storage",30.7,3.4,-19.1,4.5,6.8,11,"graphite")
+	for _,z in ipairs({-22.5,-19,-15.5}) do
+		part("Locker vent",28.42,5.2,z,0.05,0.38,1.95,"black",nil,true)
+		part("Locker pull",28.36,3.45,z,0.12,0.82,0.18,"metal",nil,true)
+	end
+
+	local spawn=Instance.new("SpawnLocation")
+	spawn.Name="Arrival"
+	spawn.Anchored=true
+	spawn.Neutral=true
+	spawn.Duration=0
+	spawn.Transparency=1
+	spawn.CanCollide=false
+	spawn.CanTouch=false
+	spawn.CanQuery=false
+	spawn.Size=Vector3.new(6,0.12,4)
+	spawn.CFrame=originFrame*CFrame.new(0,0.12,36)
+	spawn.Parent=model
+	model.Parent=parent
+	return {model=model,spawn=spawn,arrival=originFrame*CFrame.new(0,3.25,36),status=status}
+end
+
+return Headquarters
+]=]},
+{name=[=[
 HeldModels]=],source=[=[
 local Models=require(game.ReplicatedStorage.ZIVRA.Models)
 local Weapons=require(game.ReplicatedStorage.ZIVRA.Weapons)
@@ -967,7 +1166,7 @@ local function defaults()
 	local owned={}
 	for id in pairs(Weapons.Launch) do owned[id]=true end
 	return {version=1,owned=owned,loadout=table.clone(Weapons.Default),currency=0,
-		settings={quality="Automatic",reduceFlash=true,volume=0.6,sensitivity=1},favorites={},
+		settings={quality="Automatic",reduceFlash=true,volume=0.6,sensitivity=1,reducedMotion=false,autoSprint=false,fov=74},favorites={},
 		daily=Rules.daily(math.floor(os.time()/86400)),stats={kills=0,wins=0,duels=0}}
 end
 local function migrate(raw)
@@ -994,6 +1193,9 @@ local function migrate(raw)
 	if type(p.settings.reduceFlash)~="boolean" then p.settings.reduceFlash=true end
 	p.settings.volume=Rules.finite(p.settings.volume) and math.clamp(p.settings.volume,0,1) or 0.6
 	p.settings.sensitivity=Rules.finite(p.settings.sensitivity) and math.clamp(p.settings.sensitivity,0.2,2) or 1
+	p.settings.reducedMotion=p.settings.reducedMotion==true
+	p.settings.autoSprint=p.settings.autoSprint==true
+	p.settings.fov=Rules.finite(p.settings.fov) and math.clamp(p.settings.fov,65,95) or 74
 	if type(p.settings.hud)~="table" then p.settings.hud={} end
 	assert(type(p.currency)=="number" and p.currency>=0,"Malformed currency")
 	if type(p.daily)~="table" or p.daily.day~=math.floor(os.time()/86400) then p.daily=Rules.daily(math.floor(os.time()/86400)) end
@@ -1479,8 +1681,9 @@ return Yard
 {name=[=[
 World]=],source=[=[
 -- Additive runtime practice world. Never clears or edits the existing lobby/map.
-local World={Targets={},Origin=Vector3.new(0,1000,0), ArenaOrigin=Vector3.new(600,1000,0)}
+local World={Targets={},Origin=Vector3.new(0,1000,0), ArenaOrigin=Vector3.new(600,1000,0), HQOrigin=Vector3.new(0,240,110)}
 local Arena=require(script.Parent.BlueprintArena)
+local Headquarters=require(script.Parent.Headquarters)
 local Config=require(game.ReplicatedStorage.ZIVRA.Config)
 local CollectionService=game:GetService("CollectionService")
 local function part(parent,name,size,cf,color,material)
@@ -1509,14 +1712,18 @@ function World.spawn(side,round)
 	local position=World.ArenaOrigin+Vector3.new(0,3.4,67*sign)
 	return CFrame.lookAt(position,position-Vector3.new(0,0,sign))
 end
-function World.build(onRange,onLobby,onDuel)
+function World.build(onRange,onLobby,onDuel,onStation)
 	assert(not workspace:FindFirstChild("ZIVRA_Runtime"),"Duplicate ZIVRA server startup")
 	local folder=Instance.new("Folder"); folder.Name="ZIVRA_Runtime"; folder.Parent=workspace; World.Folder=folder
 	World.Arena=Arena.build(folder,World.ArenaOrigin)
 	local corridor=workspace:FindFirstChild("ZIVRA_Corridor")
 	local spawn=corridor and corridor:FindFirstChild("LobbySpawn") or workspace:FindFirstChild("ZIVRA_Spawn",true)
 	World.LobbyCFrame=spawn and spawn.CFrame+Vector3.new(0,4,0) or CFrame.new(0,6,9)
-	if Config.Launch1v1 then return end
+	if Config.Launch1v1 then
+		World.Headquarters=Headquarters.build(folder,World.HQOrigin,onStation)
+		World.LobbyCFrame=World.Headquarters.arrival
+		return
+	end
 	local range=Instance.new("Model"); range.Name="PracticeRange"; range.Parent=folder
 	local o=World.Origin
 	part(range,"Floor",Vector3.new(180,2,250),CFrame.new(o),white,Enum.Material.Concrete)
@@ -1544,6 +1751,12 @@ function World.build(onRange,onLobby,onDuel)
 	label(entrance,"ZIVRA / TRAINING"); prompt(entrance,"Enter Shooting Range",onRange)
 	local duel=part(folder,"DuelKiosk",Vector3.new(8,5,1),CFrame.new(base+Vector3.new(-12,0,0)),dark)
 	label(duel,"ZIVRA / 1 V 1"); prompt(duel,"Queue / Leave Queue",onDuel)
+end
+function World.queueStatus(queued,busy)
+	local hq=World.Headquarters
+	if not hq then return end
+	local message=queued>0 and (queued.." IN QUEUE") or busy and "DUEL IN PROGRESS" or "PLAY 1V1"
+	if hq.status.Text~=message then hq.status.Text=message end
 end
 function World.inBounds(pos,mode)
 	local o=mode=="Range" and World.Origin or World.ArenaOrigin
@@ -1748,14 +1961,17 @@ local function startDuel(first,second,now)
 	publishMatch(match)
 end
 
-local function queue(player)
+local function queue(player,wantsQueue)
 	local s=Combat.States[player]
-	if not s or s.mode~="Lobby" or not Combat.alive(player) then return end
-	if s.queued then
-		s.queued=false
-	else
+	if not s or s.mode~="Lobby" then return end
+	if wantsQueue==nil then wantsQueue=not s.queued end
+	if wantsQueue then
+		if s.queued or s.readyCharacter~=player.Character or not Combat.alive(player) then return end
 		queueOrder+=1
 		s.queued=queueOrder
+	else
+		if not s.queued then return end
+		s.queued=false
 	end
 	player:SetAttribute("ZIVRAQueued",s.queued and true or false)
 	Combat.snapshot(player,s.queued and "Waiting for an opponent" or "Left queue")
@@ -1815,7 +2031,10 @@ local function matchStep(now)
 		publishMatch(current)
 	end
 end
-World.build(enterRange,lobby,queue)
+World.build(enterRange,lobby,queue,function(player)
+	local s=Combat.States[player]
+	if s and s.mode=="Lobby" then Combat.send(player,"OpenMatchmaking") end
+end)
 local function characterAdded(player,character)
 	local h=character:WaitForChild("Humanoid",10); local root=character:WaitForChild("HumanoidRootPart",10)
 	if not h or not root or player.Character~=character then return end
@@ -1832,6 +2051,7 @@ local function characterAdded(player,character)
 		player:SetAttribute("ZIVRAQueued",false)
 		player:SetAttribute("ZIVRACombatMode","Lobby")
 		tools(player)
+		if World.Headquarters then character:PivotTo(World.LobbyCFrame) end
 		Combat.reset(player)
 	end
 	s.readyCharacter=character
@@ -1851,6 +2071,7 @@ local function characterAdded(player,character)
 	if connections[player] then connections[player].death=death else death:Disconnect() end
 end
 local function added(player)
+	if World.Headquarters then player.RespawnLocation=World.Headquarters.spawn end
 	local profile,offline=Profiles.load(player)
 	if not profile then return end
 	if not player.Parent then Profiles.save(player,true); return end
@@ -1883,6 +2104,9 @@ local function settings(s,value)
 	local p=s.profile.settings
 	if ({Low=true,Medium=true,High=true,Automatic=true})[value.quality] then p.quality=value.quality end
 	if type(value.reduceFlash)=="boolean" then p.reduceFlash=value.reduceFlash end
+	if type(value.reducedMotion)=="boolean" then p.reducedMotion=value.reducedMotion end
+	if type(value.autoSprint)=="boolean" then p.autoSprint=value.autoSprint end
+	if Rules.finite(value.fov) then p.fov=math.clamp(value.fov,65,95) end
 	if Rules.finite(value.volume) then p.volume=math.clamp(value.volume,0,1) end
 	if Rules.finite(value.sensitivity) then p.sensitivity=math.clamp(value.sensitivity,0.2,2) end
 	-- Position and scale overrides are constrained to the action-button safe region.
@@ -1914,7 +2138,10 @@ request.OnServerEvent:Connect(function(player,action,value)
 		if type(value)=="boolean" then s.menu=value; s.trigger=nil; s.blocking=false; if value then s.epoch+=1 end end
 	elseif action=="Range" then enterRange(player)
 	elseif action=="Lobby" then if s.mode~="Lobby" then lobby(player) end
-	elseif action=="Queue" then if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+1; queue(player) end
+	elseif action=="QueueJoin" then queue(player,true)
+	elseif action=="QueueCancel" then queue(player,false)
+	elseif action=="Queue" then
+		if os.clock()>(s.nextQueue or 0) then s.nextQueue=os.clock()+0.5; queue(player) end
 	elseif action=="ConfirmLoadout" then
 		if match and s.duel and s.duel.id==match and match:confirm(player,value,os.clock(),Weapons,s.profile.owned) then
 			publishMatch(match)
@@ -1969,8 +2196,17 @@ RunService.Heartbeat:Connect(function(dt)
 	if now>snapshotTime then
 		snapshotTime=now+0.3
 		for player in pairs(Combat.States) do Combat.snapshot(player) end
-		matchStep(now)
 	end
+end)
+local nextMatchStep=0
+RunService.Heartbeat:Connect(function()
+	local now=os.clock()
+	if now<nextMatchStep then return end
+	nextMatchStep=now+0.18
+	matchStep(now)
+	local queued=0
+	for _,s in pairs(Combat.States) do if s.queued then queued+=1 end end
+	World.queueStatus(queued,match~=nil)
 end)
 task.spawn(function()
 	while not shuttingDown do
@@ -1996,6 +2232,10 @@ local Debris=game:GetService("Debris")
 local Effects={quality="Automatic",volume=0.6,pool={},active=0,audioActive=0}
 local colors={permafrost=Color3.fromRGB(160,230,255),freeze_ray=Color3.fromRGB(160,230,255),
 	energy_rifle=Color3.fromRGB(0,189,255),energy_pistols=Color3.fromRGB(0,189,255),distortion=Color3.fromRGB(162,43,255)}
+local impacts={
+	Concrete=Color3.fromRGB(204,200,192),Metal=Color3.fromRGB(255,185,99),
+	CorrodedMetal=Color3.fromRGB(230,159,99),Glass=Color3.fromRGB(153,202,218),
+}
 local folder=Instance.new("Folder"); folder.Name="ZIVRA_LocalEffects"; folder.Parent=workspace
 local function take()
 	if Effects.active>=80 then return nil end
@@ -2027,6 +2267,14 @@ function Effects.play(kind,data)
 	local low=Effects.quality=="Low" or Effects.quality=="Automatic" and game.UserInputService.TouchEnabled
 	if kind=="shot" or kind=="projectile" then
 		Effects.line(data.position,data.finish,c,kind=="shot" and 0.035 or 0.09,0.08)
+		local impact=data.surface and impacts[data.surface]
+		if kind=="shot" and impact and data.normal then
+			local point=data.finish+data.normal*0.07
+			Effects.pulse(point,impact,low and 0.30 or 0.48,0.14)
+			if not low and data.surface=="Metal" then
+				Effects.line(point,point+data.normal*0.54,impact,0.065,0.09)
+			end
+		end
 	elseif kind=="freeze" or kind=="flame" then
 		Effects.line(data.position,data.finish,kind=="freeze" and Color3.fromRGB(140,225,255) or c,0.35,0.16)
 		if not low then Effects.pulse(data.finish,c,1.3,0.2) end
@@ -2064,12 +2312,13 @@ function Effects.play(kind,data)
 		Effects.pulse(data.position,color,kind=="explosion" and (data.radius or 10) or 1.5,kind=="explosion" and 0.3 or 0.16)
 	end
 end
-function Effects.audio(def,event,position)
-	local id=def.assets.audio[event]
+function Effects.audio(def,event,position,fallback)
+	local id=def.assets.audio[event] or (fallback and fallback.assets.audio[event])
 	if not id or id=="" or Effects.volume<=0 or Effects.audioActive>=24 then return end
     Effects.audioActive+=1
 	local carrier=Instance.new("Part"); carrier.Anchored=true; carrier.Transparency=1; carrier.CanCollide=false; carrier.CanQuery=false; carrier.CanTouch=false; carrier.Size=Vector3.one*0.1; carrier.Position=position; carrier.Parent=folder
 	local sound=Instance.new("Sound"); sound.SoundId=id; sound.Volume=Effects.volume*0.5; sound.RollOffMinDistance=8; sound.RollOffMaxDistance=120; sound.Parent=carrier
+	sound.PlaybackSpeed=def.firePitch or 1
 	local cleaned=false
     local function clean()
         if cleaned then return end;cleaned=true;Effects.audioActive-=1;carrier:Destroy()
@@ -2077,6 +2326,133 @@ function Effects.audio(def,event,position)
     sound.Ended:Once(clean);sound:Play();task.delay(5,clean)
 end
 return Effects
+]=]},
+{name=[=[
+HeadquartersMenu]=],source=[=[
+local Context=game:GetService("ContextActionService")
+local GuiService=game:GetService("GuiService")
+local Input=game:GetService("UserInputService")
+local Theme=require(game.ReplicatedStorage.ZIVRA.Theme)
+
+local Menu={}
+Menu.__index=Menu
+
+local function make(class,name,parent,properties)
+	local object=Instance.new(class)
+	object.Name=name
+	for key,value in pairs(properties) do object[key]=value end
+	object.Parent=parent
+	return object
+end
+
+local function text(parent,name,value,pos,size,fontSize,color)
+	return make("TextLabel",name,parent,{Text=value,BackgroundTransparency=1,
+		TextSize=fontSize,Font=Theme.Font,TextColor3=color or Theme.Text,
+		Position=pos,Size=size,TextXAlignment=Enum.TextXAlignment.Left,
+		TextTruncate=Enum.TextTruncate.AtEnd})
+end
+
+local function button(parent,name,value,pos,size,primary,action)
+	local base=primary and Theme.Cyan or Theme.Surface
+	local item=make("TextButton",name,parent,{Text=value,TextSize=13,Font=Theme.Bold,
+		TextColor3=primary and Theme.Background or Theme.Text,BackgroundColor3=base,
+		BorderSizePixel=0,Position=pos,Size=size,AutoButtonColor=false})
+	make("UICorner","Corner",item,{CornerRadius=UDim.new(0,4)})
+	if not primary then make("UIStroke","Border",item,{Color=Theme.Line,ApplyStrokeMode=Enum.ApplyStrokeMode.Border}) end
+	item.MouseEnter:Connect(function() item.BackgroundColor3=base:Lerp(Theme.Text,0.14) end)
+	item.MouseLeave:Connect(function() item.BackgroundColor3=base end)
+	item.Activated:Connect(action)
+	return item
+end
+
+function Menu.new(player,send,setNative,openEquipment)
+	local self=setmetatable({player=player,send=send,setNative=setNative,openEquipment=openEquipment},Menu)
+	local gui=make("ScreenGui","ZIVRAHeadquarters",player:WaitForChild("PlayerGui"),{
+		ResetOnSpawn=false,DisplayOrder=12,ScreenInsets=Enum.ScreenInsets.CoreUISafeInsets,Enabled=false})
+	self.gui=gui
+	local root=make("Frame","Root",gui,{Size=UDim2.fromScale(1,1),BackgroundTransparency=1})
+	local identity=make("Frame","Identity",root,{Position=UDim2.fromOffset(16,12),Size=UDim2.fromOffset(188,45),
+		BackgroundColor3=Theme.Background,BackgroundTransparency=0.14,BorderSizePixel=0})
+	make("ImageLabel","Emblem",identity,{Position=UDim2.fromOffset(8,7),Size=UDim2.fromOffset(32,32),
+		BackgroundTransparency=1,Image="rbxassetid://129565854362406",ScaleType=Enum.ScaleType.Fit})
+	text(identity,"Wordmark","ZIVRA",UDim2.fromOffset(49,3),UDim2.fromOffset(130,22),18).Font=Theme.Bold
+	text(identity,"Location","HEADQUARTERS",UDim2.fromOffset(50,24),UDim2.fromOffset(130,15),10,Theme.Muted)
+	local actions=make("Frame","Actions",root,{Size=UDim2.new(0.90,0,0,46),
+		Position=UDim2.new(0.5,0,1,-16),AnchorPoint=Vector2.new(0.5,1),BackgroundTransparency=1})
+	make("UISizeConstraint","Maximum",actions,{MaxSize=Vector2.new(438,46)})
+	self.primary=button(actions,"Play","PLAY 1V1",UDim2.new(),UDim2.new(0.4,-4,1,0),true,function()
+		self:setOpen(true)
+	end)
+	button(actions,"Loadout","LOADOUT",UDim2.fromScale(0.4,0),UDim2.new(0.3,-4,1,0),false,function() openEquipment("Weapons") end)
+	button(actions,"Settings","SETTINGS",UDim2.fromScale(0.7,0),UDim2.fromScale(0.3,1),false,function() openEquipment("Settings") end)
+	self.queueBanner=text(root,"QueueBanner","",UDim2.new(0.5,0,0,17),UDim2.new(0.44,0,0,34),12,Theme.Cyan)
+	self.queueBanner.AnchorPoint=Vector2.new(0,0)
+	self.queueBanner.TextXAlignment=Enum.TextXAlignment.Right
+	self.queueBanner.Font=Theme.Bold
+
+	local modal=make("Frame","Matchmaking",root,{BackgroundColor3=Theme.Background,BackgroundTransparency=0.28,
+		Size=UDim2.fromScale(1,1),Visible=false})
+	self.modal=modal
+	make("TextButton","Backdrop",modal,{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",Modal=true,AutoButtonColor=false,Selectable=false})
+	local panel=make("Frame","QueuePanel",modal,{Size=UDim2.new(0.9,0,1,-16),Position=UDim2.fromScale(0.5,0.5),
+		AnchorPoint=Vector2.new(0.5,0.5),BackgroundColor3=Theme.Surface,BorderSizePixel=0,ClipsDescendants=true})
+	make("UISizeConstraint","Maximum",panel,{MaxSize=Vector2.new(545,275)})
+	make("UICorner","Corner",panel,{CornerRadius=UDim.new(0,5)})
+	make("UIStroke","PanelBorder",panel,{Color=Theme.Line})
+	make("ImageLabel","ArenaArtwork",panel,{Position=UDim2.new(0.58,0,0,0),Size=UDim2.new(0.42,0,1,0),
+		Image="rbxassetid://78032110481735",ImageTransparency=0.24,BackgroundTransparency=1,ScaleType=Enum.ScaleType.Crop,
+		ZIndex=1})
+	make("Frame","Rule",panel,{Size=UDim2.fromOffset(3,40),Position=UDim2.fromOffset(0,18),
+		BackgroundColor3=Theme.Cyan,BorderSizePixel=0,ZIndex=2})
+	text(panel,"Mode","PLAY 1V1",UDim2.fromOffset(19,15),UDim2.new(0.56,-16,0,39),29).Font=Theme.Bold
+	text(panel,"Format","FIRST TO THREE",UDim2.fromOffset(20,56),UDim2.new(0.56,-16,0,22),12,Theme.Muted)
+	self.status=text(panel,"QueueStatus","Ready to queue",UDim2.new(0,20,1,-105),UDim2.new(0.56,-20,0,40),14)
+	self.status.TextWrapped=true
+	self.status.TextTruncate=Enum.TextTruncate.None
+	self.confirm=button(panel,"QueueAction","FIND OPPONENT",UDim2.new(0,20,1,-57),UDim2.new(0.54,-20,0,44),true,function()
+		if not self.state or self.state.mode~="Lobby" or self.pending then return end
+		self.pending=true
+		send(self.state.queued and "QueueCancel" or "QueueJoin")
+		self.confirm.Text="CONNECTING"
+		task.delay(1.5,function()
+			if self.pending then self.pending=false; self:update(self.state,self.equipmentOpen) end
+		end)
+	end)
+	local close=button(panel,"Close","CLOSE",UDim2.new(1,-74,0,10),UDim2.fromOffset(64,44),false,function() self:setOpen(false) end)
+	close.ZIndex=3
+	Context:BindAction("ZIVRA_HeadquartersMenu",function(_,inputState)
+		if not gui.Enabled or Input:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
+		if inputState==Enum.UserInputState.Begin then self:setOpen(not modal.Visible) end
+		return Enum.ContextActionResult.Sink
+	end,false,Enum.KeyCode.M)
+	return self
+end
+
+function Menu:setOpen(value)
+	value=value and self.gui.Enabled
+	if self.modal.Visible==value then return end
+	self.modal.Visible=value
+	self.setNative(value)
+	if Input.GamepadEnabled then GuiService.SelectedObject=value and self.confirm or nil end
+end
+
+function Menu:update(state,equipmentOpen)
+	local before=self.state and self.state.queued
+	self.state=state
+	self.equipmentOpen=equipmentOpen
+	local inLobby=state and state.mode=="Lobby"
+	if not inLobby or equipmentOpen then self:setOpen(false) end
+	self.gui.Enabled=inLobby and not equipmentOpen or false
+	if not inLobby then return end
+	if before~=state.queued then self.pending=false end
+	self.queueBanner.Visible=state.queued
+	self.queueBanner.Text=state.queued and "SEARCHING FOR OPPONENT" or ""
+	self.status.Text=state.queued and "Waiting for a player in this server" or "Ready to queue"
+	self.primary.Text=state.queued and "VIEW QUEUE" or "PLAY 1V1"
+	self.confirm.Text=self.pending and "CONNECTING" or state.queued and "CANCEL QUEUE" or "FIND OPPONENT"
+end
+
+return Menu
 ]=]},
 {name=[=[
 UI]=],source=[=[
@@ -2248,7 +2624,7 @@ function UI.init(send,onMenu,action)
 	UI.returnButton=button(UI.root,"LOBBY",UDim2.fromOffset(16,44),UDim2.fromOffset(88,32),function() send("Lobby") end)
 	UI.inviteButton=button(UI.root,"INVITE",UDim2.fromOffset(16,44),UDim2.fromOffset(88,32),function() UI.setMenu(true,"Invites") end)
 	UI.resetButton=button(UI.root,"RESET RANGE",UDim2.fromOffset(112,44),UDim2.fromOffset(110,32),function() send("ResetRange") end)
-	UI.menuButton=button(UI.root,"LOADOUT",UDim2.new(1,-104,0,44),UDim2.fromOffset(88,32),function() UI.setMenu(not UI.menu) end)
+	UI.menuButton=button(UI.root,"SETTINGS",UDim2.new(1,-104,0,44),UDim2.fromOffset(88,32),function() UI.setMenu(not UI.menu,UI.state.mode=="Duel" and "Settings" or "Weapons") end)
 	UI.rangeStats=label(UI.root,"",11,UDim2.fromOffset(16,96),UDim2.fromOffset(280,36),T.Muted); UI.rangeStats.TextWrapped=true
 	UI.quickbar=make("Frame",UI.root,{AnchorPoint=Vector2.new(0.5,1),Position=UDim2.new(0.5,0,1,-12),Size=UDim2.new(0.44,0,0,42),BackgroundTransparency=1})
 	make("UIListLayout",UI.quickbar,{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,4)})
@@ -2317,7 +2693,7 @@ function UI.init(send,onMenu,action)
 		local id=UI.selected[UI.category] or UI.state.loadout[UI.category]
 		if UI.state.mode=="Range" or UI.state.owned[id] then send("Equip",id) else UI.notice("Enter the range to try this locked item") end
 	end)
-	UI.options=make("ScrollingFrame",UI.overlay,{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromScale(0.82,0.88),BackgroundColor3=T.Surface,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,440),ScrollBarThickness=3,Visible=false})
+	UI.options=make("ScrollingFrame",UI.overlay,{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromScale(0.82,0.88),BackgroundColor3=T.Surface,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,550),ScrollBarThickness=3,Visible=false})
 	make("UISizeConstraint",UI.options,{MaxSize=Vector2.new(560,500)})
 	label(UI.options,"SETTINGS",20,UDim2.fromOffset(20,16),UDim2.fromOffset(300,30)).Font=T.Bold
 	button(UI.options,"X",UDim2.new(1,-52,0,12),UDim2.fromOffset(36,36),function() UI.setMenu(false) end)
@@ -2336,7 +2712,16 @@ function UI.init(send,onMenu,action)
 		UI.setMenu(false); UI.editing=true; UI.editDone.Visible=true; UI.smaller.Visible=true; UI.larger.Visible=true; UI.touchLayer.Visible=true; UI.notice("Drag buttons, then save. Combat is paused locally.")
 	end)
 	button(UI.options,"RESET TOUCH LAYOUT",UDim2.fromOffset(20,316),UDim2.new(1,-40,0,40),function() UI.hudLayout={}; UI.applyLayout(); send("Settings",{hud={}}) end)
-	label(UI.options,"Native Roblox joystick and jump remain available.\nPress B to open your loadout, R to reload, and G for utility.",11,UDim2.fromOffset(20,368),UDim2.new(1,-40,0,54),T.Muted).TextWrapped=true
+	UI.motionButton=button(UI.options,"",UDim2.fromOffset(20,366),UDim2.new(1,-40,0,44),function()
+		send("Settings",{reducedMotion=not UI.settings.reducedMotion})
+	end)
+	UI.fovButton=button(UI.options,"",UDim2.fromOffset(20,417),UDim2.new(1,-40,0,44),function()
+		local fov=UI.settings.fov or 74
+		send("Settings",{fov=fov>=95 and 65 or fov+5})
+	end)
+	UI.sprintButton=button(UI.options,"",UDim2.fromOffset(20,468),UDim2.new(1,-40,0,44),function()
+		send("Settings",{autoSprint=not UI.settings.autoSprint})
+	end)
 	UI.tasks=make("Frame",UI.overlay,{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromScale(0.84,0.85),BackgroundColor3=T.Surface,BorderSizePixel=0,Visible=false})
 	make("UISizeConstraint",UI.tasks,{MaxSize=Vector2.new(560,360)})
 	label(UI.tasks,"DAILY TASKS",20,UDim2.fromOffset(20,16),UDim2.new(1,-80,0,30)).Font=T.Bold
@@ -2360,7 +2745,17 @@ function UI.init(send,onMenu,action)
 	button(UI.invites,"DECLINE",UDim2.new(0.5,4,0,100),UDim2.new(0.5,-24,0,36),function() send("DeclineInvite"); UI.invitationUntil=0; UI.setMenu(false) end)
 	UI.playerList=make("ScrollingFrame",UI.invites,{Position=UDim2.fromOffset(20,148),Size=UDim2.new(1,-40,1,-164),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=3})
 	make("UIListLayout",UI.playerList,{Padding=UDim.new(0,8)})
-	UI.matchScore=label(UI.root,"",14,UDim2.fromScale(0,0),UDim2.new(1,0,0,34),T.Text)
+	UI.matchScore=label(UI.root,"",14,UDim2.new(0.5,0,0,7),UDim2.new(0.84,0,0,28),T.Text)
+	UI.matchScore.AnchorPoint=Vector2.new(0.5,0)
+	UI.matchScore.BackgroundColor3=T.Background
+	UI.matchScore.BackgroundTransparency=0.12
+	make("UISizeConstraint",UI.matchScore,{MaxSize=Vector2.new(490,28)})
+	round(UI.matchScore,4)
+	UI.headshot=label(UI.root,"HEADSHOT",11,UDim2.new(0.5,0,0.5,20),UDim2.fromOffset(128,24),T.Gold)
+	UI.headshot.AnchorPoint=Vector2.new(0.5,0)
+	UI.headshot.TextXAlignment=Enum.TextXAlignment.Center
+	UI.headshot.Font=T.Bold
+	UI.headshot.Visible=false
 	UI.matchScore.Name="DuelScore"
 	UI.matchScore.TextXAlignment=Enum.TextXAlignment.Center
 	UI.matchScore.Font=T.Bold
@@ -2481,6 +2876,9 @@ function UI.update(state)
 	UI.rangeStats.Text=string.format("%d SHOTS   %d HITS   %.0f DAMAGE\n%.1f DAMAGE / SEC",rs.shots,rs.hits,rs.damage,rs.damage/seconds)
 	UI.qualityButton.Text="VFX QUALITY  /  "..state.settings.quality:upper()
 	UI.flashButton.Text="REDUCED FLASH  /  "..(state.settings.reduceFlash and "ON" or "OFF")
+	UI.motionButton.Text="REDUCED MOTION  /  "..(state.settings.reducedMotion and "ON" or "OFF")
+	UI.fovButton.Text="FIELD OF VIEW  /  "..tostring(state.settings.fov or 74)
+	UI.sprintButton.Text="AUTO SPRINT  /  "..(state.settings.autoSprint and "ON" or "OFF")
 	UI.volumeLabel.Text=string.format("VOLUME  %d%%",math.floor(state.settings.volume*100+0.5))
 	UI.sensitivityLabel.Text=string.format("AIM SENSITIVITY  %.1f",state.settings.sensitivity or 1)
 	if not UI.editing then UI.hudLayout=state.settings.hud or {}; UI.applyLayout() end
@@ -2510,6 +2908,11 @@ function UI.showDamage(from)
  if typeof(from)~="Vector3" then return end
  UI.damageFrom=from;UI.damageUntil=os.clock()+0.7
 end
+function UI.showHit(headshot)
+	UI.hitUntil=os.clock()+0.16
+	UI.hit.TextColor3=headshot and T.Gold or T.Text
+	UI.headshotUntil=headshot and os.clock()+0.42 or UI.headshotUntil
+end
 local function updateMatch(duel)
 	local count=math.max(0,math.ceil(duel.deadline-workspace:GetServerTimeNow()))
 	local timer=duel.phase=="Active" and string.format("  %d:%02d",math.floor(count/60),count%60) or ""
@@ -2533,6 +2936,7 @@ local function updateMatch(duel)
 		UI.matchTitle.Text=duel.decided and (duel.won and "VICTORY" or "DEFEAT") or (duel.reason=="Draw limit" and "DRAW" or "DUEL ENDED")
 		UI.matchDetail.Text=string.format("%d / %d   ·   %d ELIMINATIONS\n%s",duel.score,duel.opponentScore,duel.eliminations,duel.reason or "")
 	end
+	UI.matchTitle.TextColor3=duel.phase=="Result" and duel.decided and (duel.won and T.Cyan or T.Red) or T.Text
 end
 function UI.step(humanoid,spread)
  if UI.state and UI.state.duel then updateMatch(UI.state.duel) end
@@ -2552,6 +2956,7 @@ function UI.step(humanoid,spread)
 	UI.cross[3].Position=UDim2.fromOffset(0,-spread); UI.cross[4].Position=UDim2.fromOffset(0,spread)
 	UI.toast.Visible=os.clock()<(UI.toastUntil or 0)
 	UI.hit.Visible=not UI.menu and os.clock()<(UI.hitUntil or 0)
+	UI.headshot.Visible=not UI.menu and os.clock()<(UI.headshotUntil or 0)
     UI.hit.TextTransparency=math.clamp(1-((UI.hitUntil or 0)-os.clock())/0.13,0,1)
 	if UI.invitationUntil and os.clock()>=UI.invitationUntil then UI.inviteText.Text="Invite another player in the lobby."; UI.invitationUntil=nil end
 end
@@ -2577,7 +2982,7 @@ function Viewmodel.fire()
 	Viewmodel.kick=math.min(0.4,Viewmodel.kick+0.08*(Viewmodel.def.recoil or 1)); Viewmodel.fired=os.clock(); Viewmodel.shotSide*=-1
 end
 function Viewmodel.reload(duration) Viewmodel.reloadStart=os.clock(); Viewmodel.reloadDuration=duration end
-function Viewmodel.step(dt,humanoid,menu)
+function Viewmodel.step(dt,humanoid,menu,reducedMotion)
 	local m=Viewmodel.model; if not m then return end
 	local cam=workspace.CurrentCamera; m.Parent=cam
 	local now=os.clock(); local d=Viewmodel.def
@@ -2592,10 +2997,11 @@ function Viewmodel.step(dt,humanoid,menu)
 	local inspect=math.clamp(((Viewmodel.inspectUntil or 0)-now),0,1)
 	local raw=game.UserInputService:GetMouseDelta()
     Viewmodel.sway=(Viewmodel.sway or Vector2.zero):Lerp(raw,1-math.exp(-dt*16))
-    local mouse=Viewmodel.sway
+	local mouse=reducedMotion and Vector2.zero or Viewmodel.sway
 	local melee=d.kind=="melee" and math.max(0,1-(now-(Viewmodel.fired or 0))/0.3) or 0
-	local bob=math.sin(now*(humanoid and humanoid.WalkSpeed or 16)*0.6)*0.025*movement
-	local pose=CFrame.new(Viewmodel.aim and 0.1 or 0.65,-0.7+bob-reloadPose*0.3-equip*0.7-Viewmodel.landing,-1.55+Viewmodel.kick)
+	local bob=reducedMotion and 0 or math.sin(now*(humanoid and humanoid.WalkSpeed or 16)*0.6)*0.025*movement
+	local landing=reducedMotion and 0 or Viewmodel.landing
+	local pose=CFrame.new(Viewmodel.aim and 0.1 or 0.65,-0.7+bob-reloadPose*0.3-equip*0.7-landing,-1.55+Viewmodel.kick)
 		*CFrame.Angles(reloadPose*0.45+Viewmodel.kick*0.4,math.clamp(-mouse.X*0.001,-0.06,0.06),-melee*0.9+inspect*0.6+math.clamp(-mouse.Y*0.001,-0.04,0.04))
 	m:PivotTo(cam.CFrame*pose)
 	for _,p in ipairs(Viewmodel.parts) do
@@ -2751,9 +3157,11 @@ local Shared=game.ReplicatedStorage:WaitForChild("ZIVRA")
 local request=Shared:WaitForChild("Request")
 local feedback=Shared:WaitForChild("Feedback")
 local Weapons=require(Shared.Weapons)
+local Config=require(Shared.Config)
 local UI=require(script.UI)
 local Effects=require(script.Effects)
 local VM=require(script.Viewmodel)
+local headquarters
 local state,held,fireTouch,chargeStart
 local cameraRecoil=CFrame.identity
 local nextFire=0; local burstToken=0; local sprint=false; local aim=false
@@ -2876,13 +3284,22 @@ local function nativeControls(open)
  end
 end
 UI.init(send,function(open)
+ if open and headquarters then headquarters:setOpen(false) end
  nativeControls(open)
+ if headquarters then headquarters:update(state,open) end
     if UI.gui then UI.gui.Enabled=open or (state and state.mode~="Lobby") or false end
 	stop(); aim=false; VM.aim=false; send("Menu",open)
 	UIS.MouseBehavior=open and Enum.MouseBehavior.Default or (state and state.mode~="Lobby" and Enum.MouseBehavior.LockCenter or Enum.MouseBehavior.Default)
 	player:SetAttribute("ZIVRACombatMenu",open)
     if open then workspace.CurrentCamera.FieldOfView=originalFOV end
 end,action)
+if Config.Launch1v1 then
+	local Menu=require(script.HeadquartersMenu)
+	headquarters=Menu.new(player,send,nativeControls,function(screen)
+		headquarters:setOpen(false)
+		UI.setMenu(true,screen)
+	end)
+end
 -- Modal text button releases first-person mouse lock while menus are open.
 UI.equip.Modal=true
 UI.gui.Enabled=false
@@ -2904,7 +3321,7 @@ end
 CAS:BindAction("ZIVRACombat_Menu",function(_,inputState)
 	if UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
 	if state and state.duel and state.duel.phase~="Active" then return Enum.ContextActionResult.Pass end
-	if inputState==Enum.UserInputState.Begin then UI.setMenu(not UI.menu) end
+	if inputState==Enum.UserInputState.Begin then UI.setMenu(not UI.menu,state and state.mode=="Duel" and "Settings" or "Weapons") end
 	return Enum.ContextActionResult.Sink
 end,false,Enum.KeyCode.B,Enum.KeyCode.ButtonY)
 CAS:BindAction("ZIVRACombat_Back",function(_,inputState)
@@ -2940,6 +3357,7 @@ feedback.OnClientEvent:Connect(function(kind,data)
 		if changed then stop(); VM.reloadStart=nil; aim=false; VM.aim=false end
         if state and state.reloading and not data.reloading then VM.reloadStart=nil end
 		state=data; UI.update(data)
+		if headquarters then headquarters:update(data,UI.menu) end
         UI.gui.Enabled=data.mode~="Lobby" or UI.menu
         UI.nav.Visible=false
         UI.inviteButton.Visible=false
@@ -2953,21 +3371,42 @@ feedback.OnClientEvent:Connect(function(kind,data)
 			if phase=="Loadout" then nativeControls(true)
 			elseif not UI.menu then nativeControls(false) end
 		end
+		if Config.Launch1v1 then
+			player:SetAttribute("ZIVRAReducedMotion",data.settings.reducedMotion==true)
+			player:SetAttribute("ZIVRASettingAutoSprint",data.settings.autoSprint==true)
+			player:SetAttribute("ZIVRAAppliedFOV",data.settings.fov or originalFOV)
+			local movement=game.ReplicatedStorage:FindFirstChild("ZIVRAMovement")
+			if movement then require(movement.Config).MotionScale=data.settings.reducedMotion and 0 or 1 end
+		end
 		VM.equip(data.loadout[data.slot]); VM.visible=data.mode=="Range" or phase=="Active" or phase=="Countdown"
 		if data.mode=="Lobby" or phase=="Loadout" or phase=="Result" then
-			player.CameraMode=originalCameraMode
-			UIS.MouseBehavior=Enum.MouseBehavior.Default
+			local outsideCombat=Config.Launch1v1 and Enum.CameraMode.Classic or originalCameraMode
+			if player.CameraMode~=outsideCombat then player.CameraMode=outsideCombat end
+			if changed then UIS.MouseBehavior=Enum.MouseBehavior.Default end
 		else
 			player.CameraMode=Enum.CameraMode.LockFirstPerson
 		end
 		UIS.MouseDeltaSensitivity=originalSensitivity*(data.settings.sensitivity or 1)
 		Effects.quality=data.settings.quality; Effects.volume=data.settings.volume
-	elseif kind=="Effect" then Effects.play(data.kind,data.data)
+	elseif kind=="OpenMatchmaking" then
+		if headquarters then headquarters:setOpen(true) end
+	elseif kind=="Effect" then
+		local effect=data.data
+		if data.kind=="shot" then
+			if effect.owner==player.UserId and VM.visible and VM.model then
+				local muzzle=VM.model:FindFirstChild("Muzzle")
+				if muzzle and (muzzle.Position-effect.position).Magnitude<8 then effect.position=muzzle.Position end
+			elseif effect.owner~=player.UserId and effect.audible then
+				local d=Weapons.ById[effect.id]
+				if d then Effects.audio(d,"fire",effect.position,Weapons.Launch[d.id] and Weapons.ById.assault_rifle or nil) end
+			end
+		end
+		Effects.play(data.kind,effect)
 	elseif kind=="Fired" then
 		local d=Weapons.ById[data.id]
-		Effects.audio(d,"fire",workspace.CurrentCamera.CFrame.Position)
+		Effects.audio(d,"fire",workspace.CurrentCamera.CFrame.Position,d.magazine and Weapons.Launch[d.id] and Weapons.ById.assault_rifle or nil)
 		if d.slot==4 or data.slash then VM.fire() end
-	elseif kind=="Hit" then UI.hitUntil=os.clock()+0.13; UI.hit.TextColor3=data.headshot and Color3.fromRGB(255,211,38) or Color3.new(1,1,1)
+	elseif kind=="Hit" then UI.showHit(data.headshot)
 	elseif kind=="Reload" then VM.reload(data.duration)
 	elseif kind=="Healing" then VM.reload(data.duration); UI.notice("Healing - taking damage interrupts")
 	elseif kind=="Hurt" then
@@ -3006,7 +3445,7 @@ RunService:BindToRenderStep("ZIVRA_Viewmodel",Enum.RenderPriority.Camera.Value+1
 	end
 	cameraRecoil=usable() and not player:GetAttribute("ZIVRAReducedMotion") and CFrame.Angles(VM.kick*0.12,0,0) or CFrame.identity
 	cam.CFrame*=cameraRecoil
-	VM.step(dt,h,UI.menu)
+	VM.step(dt,h,UI.menu,player:GetAttribute("ZIVRAReducedMotion")==true)
 	local d=state and Weapons.ById[state.loadout[state.slot]]
 	local spread=5+(d and d.spread or 0)+VM.kick*30+(h and h.MoveDirection.Magnitude*3 or 0)
 	if aim then spread*=0.65 end

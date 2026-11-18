@@ -12,7 +12,7 @@ function Viewmodel.fire()
 	Viewmodel.kick=math.min(0.4,Viewmodel.kick+0.08*(Viewmodel.def.recoil or 1)); Viewmodel.fired=os.clock(); Viewmodel.shotSide*=-1
 end
 function Viewmodel.reload(duration) Viewmodel.reloadStart=os.clock(); Viewmodel.reloadDuration=duration end
-function Viewmodel.step(dt,humanoid,menu)
+function Viewmodel.step(dt,humanoid,menu,reducedMotion)
 	local m=Viewmodel.model; if not m then return end
 	local cam=workspace.CurrentCamera; m.Parent=cam
 	local now=os.clock(); local d=Viewmodel.def
@@ -27,10 +27,11 @@ function Viewmodel.step(dt,humanoid,menu)
 	local inspect=math.clamp(((Viewmodel.inspectUntil or 0)-now),0,1)
 	local raw=game.UserInputService:GetMouseDelta()
     Viewmodel.sway=(Viewmodel.sway or Vector2.zero):Lerp(raw,1-math.exp(-dt*16))
-    local mouse=Viewmodel.sway
+	local mouse=reducedMotion and Vector2.zero or Viewmodel.sway
 	local melee=d.kind=="melee" and math.max(0,1-(now-(Viewmodel.fired or 0))/0.3) or 0
-	local bob=math.sin(now*(humanoid and humanoid.WalkSpeed or 16)*0.6)*0.025*movement
-	local pose=CFrame.new(Viewmodel.aim and 0.1 or 0.65,-0.7+bob-reloadPose*0.3-equip*0.7-Viewmodel.landing,-1.55+Viewmodel.kick)
+	local bob=reducedMotion and 0 or math.sin(now*(humanoid and humanoid.WalkSpeed or 16)*0.6)*0.025*movement
+	local landing=reducedMotion and 0 or Viewmodel.landing
+	local pose=CFrame.new(Viewmodel.aim and 0.1 or 0.65,-0.7+bob-reloadPose*0.3-equip*0.7-landing,-1.55+Viewmodel.kick)
 		*CFrame.Angles(reloadPose*0.45+Viewmodel.kick*0.4,math.clamp(-mouse.X*0.001,-0.06,0.06),-melee*0.9+inspect*0.6+math.clamp(-mouse.Y*0.001,-0.04,0.04))
 	m:PivotTo(cam.CFrame*pose)
 	for _,p in ipairs(Viewmodel.parts) do

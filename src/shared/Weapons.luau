@@ -20,8 +20,8 @@ end
 -- Primary: all 14 explicitly named items.
 gun("assault_rifle","Assault Rifle",1,"auto",17,30,0.1,{spread=0.7,bloom=2,recoil=1.1})
 gun("burst_rifle","Burst Rifle",1,"burst",18,27,0.09,{burst=3,burstPause=0.28,spread=0.35,recoil=1.5})
-gun("sniper_rifle","Sniper Rifle",1,"semi",55,5,1.35,{headshot=2,spread=0.05,reload=2.8,recoil=3.6,falloffStart=300})
-gun("shotgun","Shotgun",1,"pellets",2.75,6,0.85,{pellets=8,spread=3.2,range=90,falloffStart=18,minDamageScale=0.08,reload=2.6,recoil=3})
+gun("sniper_rifle","Sniper Rifle",1,"semi",55,5,1.35,{headshot=2,spread=0.05,reload=2.8,recoil=3.6,falloffStart=300,firePitch=0.68})
+gun("shotgun","Shotgun",1,"pellets",2.75,6,0.85,{pellets=8,spread=3.2,range=90,falloffStart=18,minDamageScale=0.08,reload=2.6,recoil=3,firePitch=0.81})
 gun("minigun","Minigun",1,"auto",9,120,1/15,{spinup=0.7,heatPerShot=0.035,cooling=0.22,spread=3,moveScale=0.65,reload=3.4})
 gun("rpg","RPG",1,"rocket",75,1,1.6,{speed=115,gravity=0,radius=16,range=450,reload=3,recoil=4})
 gun("grenade_launcher","Grenade Launcher",1,"grenade",60,4,0.8,{speed=85,gravity=0.65,radius=13,fuse=2.1,bounce=true,reload=2.8})
@@ -35,7 +35,7 @@ gun("paintball","Paintball",1,"bolt",13,35,0.12,{speed=190,gravity=0.08,paint=tr
 gun("gunblade","Gunblade",1,"semi",23,8,0.4,{slash=42,meleeRange=7,rarity="Experimental"})
 -- Secondary: all 11 explicitly named items.
 gun("handgun","Handgun",2,"semi",25,12,0.24,{reload=1.3,spread=0.4})
-gun("revolver","Revolver",2,"semi",34,6,0.7,{reload=2.5,recoil=2.5,spread=0.2})
+gun("revolver","Revolver",2,"semi",34,6,0.7,{reload=2.5,recoil=2.5,spread=0.2,firePitch=0.92})
 gun("shorty","Shorty",2,"pellets",8,2,0.65,{pellets=7,spread=8,range=55,falloffStart=10,minDamageScale=0.05,reload=1.7})
 gun("uzi","Uzi",2,"auto",12,25,0.075,{spread=1.8,bloom=3,reload=1.4})
 gun("spray","Spray",2,"auto",10,35,0.065,{spread=2.2,bloom=5,reload=1.7})
