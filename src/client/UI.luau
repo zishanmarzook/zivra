@@ -149,6 +149,10 @@ function UI.init(send,onMenu,action)
 	UI.healthFill=make("Frame",UI.health,{Size=UDim2.fromScale(1,1),BackgroundColor3=T.Green,BorderSizePixel=0}); round(UI.healthFill,4)
 	UI.healthText=label(UI.health,"100",12,UDim2.fromOffset(8,0),UDim2.new(1,-16,1,0),T.Background); UI.healthText.Font=T.Bold
 	UI.ammo=label(UI.root,"",16,UDim2.new(1,-240,1,-42),UDim2.fromOffset(220,24)); UI.ammo.TextXAlignment=Enum.TextXAlignment.Right
+	UI.ammo.BackgroundColor3=T.Background
+	UI.ammo.BackgroundTransparency=0.12
+	make("UIPadding",UI.ammo,{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8)})
+	round(UI.ammo,4)
 	UI.reloadTrack=make("Frame",UI.root,{Name="ReloadProgress",AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,1,-64),Size=UDim2.fromOffset(160,3),BackgroundColor3=T.Line,BorderSizePixel=0,Visible=false})
  UI.reloadFill=make("Frame",UI.reloadTrack,{Size=UDim2.fromScale(0,1),BackgroundColor3=T.Cyan,BorderSizePixel=0})
  UI.damageDirection=make("Frame",UI.root,{Name="DamageDirection",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(180,180),BackgroundTransparency=1,Visible=false})

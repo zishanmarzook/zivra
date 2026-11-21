@@ -2607,6 +2607,10 @@ function UI.init(send,onMenu,action)
 	UI.healthFill=make("Frame",UI.health,{Size=UDim2.fromScale(1,1),BackgroundColor3=T.Green,BorderSizePixel=0}); round(UI.healthFill,4)
 	UI.healthText=label(UI.health,"100",12,UDim2.fromOffset(8,0),UDim2.new(1,-16,1,0),T.Background); UI.healthText.Font=T.Bold
 	UI.ammo=label(UI.root,"",16,UDim2.new(1,-240,1,-42),UDim2.fromOffset(220,24)); UI.ammo.TextXAlignment=Enum.TextXAlignment.Right
+	UI.ammo.BackgroundColor3=T.Background
+	UI.ammo.BackgroundTransparency=0.12
+	make("UIPadding",UI.ammo,{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8)})
+	round(UI.ammo,4)
 	UI.reloadTrack=make("Frame",UI.root,{Name="ReloadProgress",AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,1,-64),Size=UDim2.fromOffset(160,3),BackgroundColor3=T.Line,BorderSizePixel=0,Visible=false})
  UI.reloadFill=make("Frame",UI.reloadTrack,{Size=UDim2.fromScale(0,1),BackgroundColor3=T.Cyan,BorderSizePixel=0})
  UI.damageDirection=make("Frame",UI.root,{Name="DamageDirection",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(180,180),BackgroundTransparency=1,Visible=false})
@@ -3271,17 +3275,32 @@ local function action(name,on,input)
 	end
 end
 local nativeMenuState
+local function suppressTouch(gui)
+	if nativeMenuState and gui and gui.Enabled then
+		nativeMenuState.touch[gui]=true
+		gui.Enabled=false
+	end
+end
+local function watchTouch(gui)
+	if gui.Name~="TouchGui" or not gui:IsA("ScreenGui") then return end
+	gui:GetPropertyChangedSignal("Enabled"):Connect(function() suppressTouch(gui) end)
+	suppressTouch(gui)
+end
+local playerGui=player:WaitForChild("PlayerGui")
+for _,gui in ipairs(playerGui:GetChildren()) do watchTouch(gui) end
+playerGui.ChildAdded:Connect(watchTouch)
 local function nativeControls(open)
- local touchGui=player.PlayerGui:FindFirstChild("TouchGui")
- if open and not nativeMenuState then
-  nativeMenuState={backpack=game:GetService("StarterGui"):GetCoreGuiEnabled(Enum.CoreGuiType.Backpack),touch=touchGui and touchGui.Enabled}
-  game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,false)
-  if touchGui then touchGui.Enabled=false end
- elseif not open and nativeMenuState then
-  game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,nativeMenuState.backpack)
-  if touchGui and nativeMenuState.touch~=nil then touchGui.Enabled=nativeMenuState.touch end
-  nativeMenuState=nil
- end
+	local starterGui=game:GetService("StarterGui")
+	if open and not nativeMenuState then
+		nativeMenuState={backpack=starterGui:GetCoreGuiEnabled(Enum.CoreGuiType.Backpack),touch={}}
+		starterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,false)
+		suppressTouch(playerGui:FindFirstChild("TouchGui"))
+	elseif not open and nativeMenuState then
+		local prior=nativeMenuState
+		nativeMenuState=nil
+		starterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,prior.backpack)
+		for gui in pairs(prior.touch) do if gui.Parent==playerGui then gui.Enabled=true end end
+	end
 end
 UI.init(send,function(open)
  if open and headquarters then headquarters:setOpen(false) end
@@ -3361,7 +3380,8 @@ feedback.OnClientEvent:Connect(function(kind,data)
         UI.gui.Enabled=data.mode~="Lobby" or UI.menu
         UI.nav.Visible=false
         UI.inviteButton.Visible=false
-        UI.health.Visible=data.mode~="Lobby";UI.ammo.Visible=data.mode~="Lobby"
+        local showVitals=data.mode=="Range" or data.duel and data.duel.phase=="Active"
+        UI.health.Visible=showVitals==true;UI.ammo.Visible=showVitals==true
         UI.top.Visible=data.mode=="Range";UI.currency.Visible=false
         UI.menuButton.Visible=data.mode~="Lobby" and (not data.duel or data.duel.phase=="Active")
         if data.mode~="Lobby" or UI.menu then UI.gui.Enabled=true end

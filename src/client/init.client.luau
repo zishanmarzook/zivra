@@ -123,17 +123,32 @@ local function action(name,on,input)
 	end
 end
 local nativeMenuState
+local function suppressTouch(gui)
+	if nativeMenuState and gui and gui.Enabled then
+		nativeMenuState.touch[gui]=true
+		gui.Enabled=false
+	end
+end
+local function watchTouch(gui)
+	if gui.Name~="TouchGui" or not gui:IsA("ScreenGui") then return end
+	gui:GetPropertyChangedSignal("Enabled"):Connect(function() suppressTouch(gui) end)
+	suppressTouch(gui)
+end
+local playerGui=player:WaitForChild("PlayerGui")
+for _,gui in ipairs(playerGui:GetChildren()) do watchTouch(gui) end
+playerGui.ChildAdded:Connect(watchTouch)
 local function nativeControls(open)
- local touchGui=player.PlayerGui:FindFirstChild("TouchGui")
- if open and not nativeMenuState then
-  nativeMenuState={backpack=game:GetService("StarterGui"):GetCoreGuiEnabled(Enum.CoreGuiType.Backpack),touch=touchGui and touchGui.Enabled}
-  game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,false)
-  if touchGui then touchGui.Enabled=false end
- elseif not open and nativeMenuState then
-  game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,nativeMenuState.backpack)
-  if touchGui and nativeMenuState.touch~=nil then touchGui.Enabled=nativeMenuState.touch end
-  nativeMenuState=nil
- end
+	local starterGui=game:GetService("StarterGui")
+	if open and not nativeMenuState then
+		nativeMenuState={backpack=starterGui:GetCoreGuiEnabled(Enum.CoreGuiType.Backpack),touch={}}
+		starterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,false)
+		suppressTouch(playerGui:FindFirstChild("TouchGui"))
+	elseif not open and nativeMenuState then
+		local prior=nativeMenuState
+		nativeMenuState=nil
+		starterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack,prior.backpack)
+		for gui in pairs(prior.touch) do if gui.Parent==playerGui then gui.Enabled=true end end
+	end
 end
 UI.init(send,function(open)
  if open and headquarters then headquarters:setOpen(false) end
@@ -213,7 +228,8 @@ feedback.OnClientEvent:Connect(function(kind,data)
         UI.gui.Enabled=data.mode~="Lobby" or UI.menu
         UI.nav.Visible=false
         UI.inviteButton.Visible=false
-        UI.health.Visible=data.mode~="Lobby";UI.ammo.Visible=data.mode~="Lobby"
+        local showVitals=data.mode=="Range" or data.duel and data.duel.phase=="Active"
+        UI.health.Visible=showVitals==true;UI.ammo.Visible=showVitals==true
         UI.top.Visible=data.mode=="Range";UI.currency.Visible=false
         UI.menuButton.Visible=data.mode~="Lobby" and (not data.duel or data.duel.phase=="Active")
         if data.mode~="Lobby" or UI.menu then UI.gui.Enabled=true end
