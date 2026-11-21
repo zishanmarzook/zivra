@@ -1,0 +1,194 @@
+{
+  "ReplicatedStorage.ZIVRA.Config": {
+    "bytes": 687,
+    "hash": 864374098
+  },
+  "ReplicatedStorage.ZIVRA.MatchAdapter": {
+    "bytes": 641,
+    "hash": 989639418
+  },
+  "ReplicatedStorage.ZIVRA.Models": {
+    "bytes": 7031,
+    "hash": 2006427671
+  },
+  "ReplicatedStorage.ZIVRA.Rules": {
+    "bytes": 1313,
+    "hash": 856267572
+  },
+  "ReplicatedStorage.ZIVRA.Theme": {
+    "bytes": 455,
+    "hash": 1709397169
+  },
+  "ReplicatedStorage.ZIVRA.Weapons": {
+    "bytes": 5879,
+    "hash": 230767009
+  },
+  "ReplicatedStorage.ZIVRAWeapons.WeaponConfig": {
+    "bytes": 507,
+    "hash": 698036978
+  },
+  "ReplicatedStorage.ZIVRAMovement.Config": {
+    "bytes": 877,
+    "hash": 1995485322
+  },
+  "ReplicatedStorage.ZIVRAMovement.MotionMath": {
+    "bytes": 492,
+    "hash": 1101405065
+  },
+  "ReplicatedStorage.ZIVRAMovement.PoseLibrary": {
+    "bytes": 2942,
+    "hash": 140222978
+  },
+  "ReplicatedStorage.ZIVRAMovement.MovementController": {
+    "bytes": 7684,
+    "hash": 1873475626
+  },
+  "ReplicatedStorage.ZIVRAMovement.AnimationController": {
+    "bytes": 4526,
+    "hash": 1122448223
+  },
+  "ReplicatedStorage.ZIVRAMovement.CameraController": {
+    "bytes": 2023,
+    "hash": 640543988
+  },
+  "ReplicatedStorage.ZIVRAMapShared.MapConfig": {
+    "bytes": 933,
+    "hash": 408307994
+  },
+  "ReplicatedStorage.ZIVRAHQ.Config": {
+    "bytes": 1097,
+    "hash": 1933677481
+  },
+  "ReplicatedStorage.ZIVRAHQ.UIComponents": {
+    "bytes": 2365,
+    "hash": 48182408
+  },
+  "ServerScriptService.ZIVRAQueueServer": {
+    "bytes": 3781,
+    "hash": 1567248813
+  },
+  "ServerScriptService.ZIVRAMovementServer": {
+    "bytes": 5735,
+    "hash": 1984834503
+  },
+  "ServerScriptService.ZIVRA_Server": {
+    "bytes": 13253,
+    "hash": 1712821131
+  },
+  "ServerScriptService.ZIVRA_Server.Combat": {
+    "bytes": 17112,
+    "hash": 929626046
+  },
+  "ServerScriptService.ZIVRA_Server.HeldModels": {
+    "bytes": 862,
+    "hash": 2112643136
+  },
+  "ServerScriptService.ZIVRA_Server.Profiles": {
+    "bytes": 5289,
+    "hash": 431010059
+  },
+  "ServerScriptService.ZIVRA_Server.Projectiles": {
+    "bytes": 3133,
+    "hash": 1787353457
+  },
+  "ServerScriptService.ZIVRA_Server.Utility": {
+    "bytes": 8111,
+    "hash": 1519890428
+  },
+  "ServerScriptService.ZIVRA_Server.World": {
+    "bytes": 5430,
+    "hash": 1734239921
+  },
+  "ServerScriptService.ZIVRAWeapons.WeaponValidation": {
+    "bytes": 2578,
+    "hash": 57946821
+  },
+  "ServerScriptService.ZIVRAWeapons.DamageService": {
+    "bytes": 2397,
+    "hash": 1175982797
+  },
+  "ServerScriptService.ZIVRAWeapons.WeaponServer": {
+    "bytes": 4588,
+    "hash": 2046848193
+  },
+  "ServerScriptService.ZIVRAMapServices.MapService": {
+    "bytes": 2484,
+    "hash": 537969117
+  },
+  "ServerScriptService.ZIVRAMapServices.SpawnService": {
+    "bytes": 1314,
+    "hash": 670404809
+  },
+  "ServerScriptService.ZIVRAMapServices.RoundService": {
+    "bytes": 6650,
+    "hash": 1427793229
+  },
+  "ServerScriptService.ZIVRAMapServices.MapBootstrap": {
+    "bytes": 131,
+    "hash": 192383365
+  },
+  "ServerScriptService.ZIVRAMapServices.WeaponPoseBridge": {
+    "bytes": 2020,
+    "hash": 2026115559
+  },
+  "ServerScriptService.ZIVRAHQServices.PartyCore": {
+    "bytes": 4900,
+    "hash": 623141546
+  },
+  "ServerScriptService.ZIVRAHQServices.SessionStats": {
+    "bytes": 667,
+    "hash": 1578686120
+  },
+  "ServerScriptService.ZIVRAHQServices.TrainingService": {
+    "bytes": 1003,
+    "hash": 38700038
+  },
+  "ServerScriptService.ZIVRAHQServices.LobbyService": {
+    "bytes": 9033,
+    "hash": 547395664
+  },
+  "ServerScriptService.ZIVRAHQServices.Bootstrap": {
+    "bytes": 35,
+    "hash": 764215319
+  },
+  "StarterPlayer.StarterPlayerScripts.ZIVRAWeaponClient": {
+    "bytes": 8427,
+    "hash": 793601739
+  },
+  "StarterPlayer.StarterPlayerScripts.ZIVRAMovementClient": {
+    "bytes": 6310,
+    "hash": 946955202
+  },
+  "StarterPlayer.StarterPlayerScripts.ZIVRAMapSelectionClient": {
+    "bytes": 5876,
+    "hash": 931748889
+  },
+  "StarterPlayer.StarterPlayerScripts.ZIVRAHQClient": {
+    "bytes": 18203,
+    "hash": 320998063
+  },
+  "StarterPlayer.StarterPlayerScripts.ZIVRA_Client": {
+    "bytes": 10487,
+    "hash": 1292869945
+  },
+  "StarterPlayer.StarterPlayerScripts.ZIVRA_Client.Effects": {
+    "bytes": 5240,
+    "hash": 748781140
+  },
+  "StarterPlayer.StarterPlayerScripts.ZIVRA_Client.UI": {
+    "bytes": 25745,
+    "hash": 1884418629
+  },
+  "StarterPlayer.StarterPlayerScripts.ZIVRA_Client.Viewmodel": {
+    "bytes": 3065,
+    "hash": 1660113403
+  },
+  "StarterGui.ZIVRALobbyUI.LobbyClient": {
+    "bytes": 3322,
+    "hash": 764672767
+  },
+  "StarterGui.ZIVRALobbyUI.FirstPersonUI": {
+    "bytes": 3046,
+    "hash": 1076910047
+  }
+}

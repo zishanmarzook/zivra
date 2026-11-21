@@ -1,0 +1,25 @@
+name: Validate Luau
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+permissions:
+  contents: read
+jobs:
+  luau:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned official Luau CLI
+        run: |
+          mkdir -p work/tools
+          curl --fail --location --retry 3 https://github.com/luau-lang/luau/releases/download/0.747/luau-ubuntu.zip -o work/luau.zip
+          unzip -q work/luau.zip -d work/tools
+          chmod +x work/tools/luau*
+      - name: Compile and test policies, lifecycle and persistence
+        run: python scripts/test.py --tools work/tools
+      - name: Verify installer is reproducible
+        run: |
+          python scripts/build_installer.py
+          git diff --exit-code -- studio/InstallZivra.lua
+          work/tools/luau-compile studio/InstallZivra.lua > /dev/null
